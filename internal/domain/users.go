@@ -9,7 +9,7 @@ type User struct {
 	Id           int64
 	Email        string
 	PasswordHash string
-	IsVerified   string
+	IsVerified   bool
 	Status       string
 	CreatedAt    time.Time
 }

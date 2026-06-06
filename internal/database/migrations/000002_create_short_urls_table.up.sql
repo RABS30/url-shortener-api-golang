@@ -1,5 +1,5 @@
 CREATE TABLE short_urls (
-    id BIGSERIAL PRIMARY KEY NOT NULL,
+    id              BIGSERIAL PRIMARY KEY NOT NULL,
     user_id         BIGINT NOT NULL,
     short_code      VARCHAR(255) NOT NULL,
     original_url    TEXT NOT NULL,
