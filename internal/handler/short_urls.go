@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"shorter-url/internal/domain"
 	"shorter-url/internal/helper"
+	"shorter-url/internal/middleware"
 	"time"
 
 	"github.com/julienschmidt/httprouter"
@@ -29,6 +30,13 @@ func NewShortUrlHandler(service domain.ShortUrlsService) *shortUrlHandler {
 }
 
 func (s *shortUrlHandler) Create(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	userId := middleware.GetUserIDFromCookie(w, r, middleware.UserIDKey)
+	if userId == 0 {
+		helper.BadResponse(w, http.StatusUnauthorized, "Unauthorized")
+
+		return
+	}
+
 	var inputData struct {
 		OriginalUrl string `json:"original_url"`
 	}
@@ -42,8 +50,6 @@ func (s *shortUrlHandler) Create(w http.ResponseWriter, r *http.Request, p httpr
 	}
 
 	ctx := r.Context()
-
-	userId := int64(99)
 	expiredAt := time.Now().AddDate(0, 1, 0)
 
 	result, err := s.Service.CreateShortUrl(ctx, userId, inputData.OriginalUrl, expiredAt)
