@@ -91,6 +91,7 @@ func (h *userHandler) Login(w http.ResponseWriter, r *http.Request, p httprouter
 	cookie := &http.Cookie{
 		Name:     "token",
 		Value:    token,
+		Domain:   "localhost",
 		Path:     "/",
 		MaxAge:   3600 * 24,
 		HttpOnly: true,

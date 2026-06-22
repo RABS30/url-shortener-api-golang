@@ -34,8 +34,8 @@ func main() {
 
 	router := httprouter.New()
 
-	router.POST("/api/urls", shortUrlHandler.Create)
-	router.GET("/:shortCode", shortUrlHandler.GetShortCode)
+	router.POST("/api/urls", middleware.AuthMiddleware(jwtSecret)(shortUrlHandler.Create))
+	router.GET("/:shortCode", shortUrlHandler.AccessShortCode)
 
 	router.POST("/user/login", userHandler.Login)
 	router.POST("/user/register", userHandler.Register)

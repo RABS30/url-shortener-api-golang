@@ -30,7 +30,7 @@ func NewShortUrlHandler(service domain.ShortUrlsService) *shortUrlHandler {
 }
 
 func (s *shortUrlHandler) Create(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	userId := middleware.GetUserIDFromCookie(w, r, middleware.UserIDKey)
+	userId := middleware.GetUserIDFromCookie(r, middleware.UserIDKey)
 	if userId == 0 {
 		helper.BadResponse(w, http.StatusUnauthorized, "Unauthorized")
 
@@ -76,7 +76,7 @@ func (s *shortUrlHandler) Create(w http.ResponseWriter, r *http.Request, p httpr
 	})
 }
 
-func (s *shortUrlHandler) GetShortCode(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+func (s *shortUrlHandler) AccessShortCode(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	ctx := r.Context()
 	shortCode := p.ByName("shortCode")
 
