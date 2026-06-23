@@ -24,7 +24,7 @@ func (s *shortUrlsService) CreateShortUrl(ctx context.Context, userId int64, ori
 
 	_, err := url.ParseRequestURI(originalUrl)
 
-	if err != nil {
+	if err != nil { 	
 		return nil, fmt.Errorf("URL format not valid: %w", err)
 	}
 

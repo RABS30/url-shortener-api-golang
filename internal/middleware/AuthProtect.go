@@ -62,7 +62,7 @@ func AuthMiddleware(secretKey string) func(httprouter.Handle) httprouter.Handle 
 	}
 }
 
-func GetUserIDFromCookie(r *http.Request, key any) int64 {
+func GetUserIDFromContext(r *http.Request, key any) int64 {
 	userIDContext := r.Context().Value(key)
 	if userIDContext == nil {
 		return 0

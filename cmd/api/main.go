@@ -17,10 +17,8 @@ func main() {
 	database := database.DatabaseConnect()
 	defer database.Close()
 
-	jwtSecret := os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
-		log.Println("This is jwt token : ", jwtSecret)
-		jwtSecret = "super-secret-key-fallback-12345"
+	JwtSecret := os.Getenv("JWT_SECRET")
+	if JwtSecret == "" {
 		log.Println("Warning: JWT_SECRET env is not set, using default fallback key")
 	}
 
@@ -29,12 +27,12 @@ func main() {
 	shortUrlHandler := handler.NewShortUrlHandler(shortUrlService)
 
 	userRepo := repository.NewUserRepository(database)
-	userService := service.NewUserService(userRepo, []byte(jwtSecret))
+	userService := service.NewUserService(userRepo, []byte(JwtSecret))
 	userHandler := handler.NewUserHandler(userService)
 
 	router := httprouter.New()
 
-	router.POST("/api/urls", middleware.AuthMiddleware(jwtSecret)(shortUrlHandler.Create))
+	router.POST("/api/urls", middleware.AuthMiddleware(JwtSecret)(shortUrlHandler.Create))
 	router.GET("/:shortCode", shortUrlHandler.AccessShortCode)
 
 	router.POST("/user/login", userHandler.Login)
