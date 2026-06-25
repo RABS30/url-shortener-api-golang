@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"shorter-url/internal/helper"
@@ -62,16 +63,15 @@ func AuthMiddleware(secretKey string) func(httprouter.Handle) httprouter.Handle 
 	}
 }
 
-func GetUserIDFromContext(r *http.Request, key any) int64 {
+func GetUserIDFromContext(r *http.Request, key any) (int64, error) {
 	userIDContext := r.Context().Value(key)
 	if userIDContext == nil {
-		return 0
+		return 0, fmt.Errorf("id not found")
 	}
 
-	userID, ok := userIDContext.(int64)
-	if !ok {
-		return 0
+	if userID, ok := userIDContext.(int64); ok {
+		return userID, nil
 	}
-
-	return userID
+	
+	return 0, fmt.Errorf("invalid id")
 }

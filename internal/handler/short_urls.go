@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"shorter-url/internal/domain"
 	"shorter-url/internal/helper"
@@ -20,17 +21,19 @@ type ShortUrlResponse struct {
 }
 
 type shortUrlHandler struct {
-	Service domain.ShortUrlsService
+	Service    domain.ShortUrlsService
+	ClickEvent domain.ClickEventService
 }
 
-func NewShortUrlHandler(service domain.ShortUrlsService) *shortUrlHandler {
+func NewShortUrlHandler(service domain.ShortUrlsService, clickEvent domain.ClickEventService) *shortUrlHandler {
 	return &shortUrlHandler{
-		Service: service,
+		Service:    service,
+		ClickEvent: clickEvent,
 	}
 }
 
 func (s *shortUrlHandler) Create(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	userId := middleware.GetUserIDFromContext(r, middleware.UserIDKey)
+	userId, err := middleware.GetUserIDFromContext(r, middleware.UserIDKey)
 	if userId == 0 {
 		helper.BadResponse(w, http.StatusUnauthorized, "Unauthorized")
 
@@ -89,6 +92,30 @@ func (s *shortUrlHandler) AccessShortCode(w http.ResponseWriter, r *http.Request
 		})
 
 		return
+	}
+
+	ipAddress := r.RemoteAddr
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		ipAddress = xff
+	}
+
+	userAgent := r.UserAgent()
+
+	referer := r.Referer()
+	if referer == "" {
+		referer = "Direct"
+	}
+
+	metadataUser := &domain.ClickEvent{
+		ShortUrlId: result.Id,
+		IpAddress:  ipAddress,
+		UserAgent:  userAgent,
+		Referer:    referer,
+	}
+
+	_, err = s.ClickEvent.Create(ctx, metadataUser)
+	if err != nil {
+		log.Printf("ERROR [ClickEvent]: gagal menyimpan statistik klik: %v", err)
 	}
 
 	http.Redirect(w, r, result.OriginalUrl, http.StatusFound)

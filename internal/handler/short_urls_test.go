@@ -22,7 +22,9 @@ import (
 
 func Test_Create_ShortUrl_Pass(t *testing.T) {
 	mockService := new(service.MockShortUrlService)
-	handler := NewShortUrlHandler(mockService)
+	mockClickService := new(service.MockClickEventService)
+
+	handler := NewShortUrlHandler(mockService, mockClickService)
 
 	mockService.On("CreateShortUrl", mock.Anything, int64(1), "https://www.google.com", mock.Anything).Return(&domain.ShortUrl{
 		Id:          1,
@@ -71,7 +73,8 @@ func Test_Create_ShortUrl_Pass(t *testing.T) {
 
 func Test_Creat_ShortUrl_Unauthorized(t *testing.T) {
 	mockService := new(service.MockShortUrlService)
-	handler := NewShortUrlHandler(mockService)
+	mockClickService := new(service.MockClickEventService)
+	handler := NewShortUrlHandler(mockService, mockClickService)
 
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, "localhost:8080/api/urls", strings.NewReader(`{"original_url":"https://www.google.com"}`))
@@ -90,7 +93,8 @@ func Test_Creat_ShortUrl_Unauthorized(t *testing.T) {
 
 func Test_Create_ShortUrl_InvalidJSON(t *testing.T) {
 	mockService := new(service.MockShortUrlService)
-	handler := NewShortUrlHandler(mockService)
+	mockClickService := new(service.MockClickEventService)
+	handler := NewShortUrlHandler(mockService, mockClickService)
 
 	recorder := httptest.NewRecorder()
 	brokenBodyJson := `{"original_url" : "https://www.google.com`
@@ -110,7 +114,8 @@ func Test_Create_ShortUrl_InvalidJSON(t *testing.T) {
 
 func Test_Create_ShortUrl_ServiceError(t *testing.T) {
 	mockService := new(service.MockShortUrlService)
-	handler := NewShortUrlHandler(mockService)
+	mockClickService := new(service.MockClickEventService)
+	handler := NewShortUrlHandler(mockService, mockClickService)
 
 	mockService.On("CreateShortUrl", mock.Anything, int64(1), "https://www.google.com", mock.Anything).
 		Return(nil, errors.New("database connection lost"))
@@ -133,13 +138,16 @@ func Test_Create_ShortUrl_ServiceError(t *testing.T) {
 
 func Test_AccessShortCode_Pass(t *testing.T) {
 	mockService := new(service.MockShortUrlService)
-	handler := NewShortUrlHandler(mockService)
+	mockClickService := new(service.MockClickEventService)
+	handler := NewShortUrlHandler(mockService, mockClickService)
 
 	mockService.On("GetShortUrlByShortCode", mock.Anything, "hihihi").Return(&domain.ShortUrl{
 		Id:          1,
 		ShortCode:   "hihihi",
 		OriginalUrl: "https://www.google.com",
 	}, nil)
+
+	mockClickService.On("Create", mock.Anything, mock.Anything).Return(&domain.ClickEvent{}, nil)
 
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "localhost:8080/hihihi", nil)
@@ -154,13 +162,14 @@ func Test_AccessShortCode_Pass(t *testing.T) {
 	assert.Equal(t, "https://www.google.com", recorder.Header().Get("Location"))
 
 	mockService.AssertExpectations(t)
+	mockClickService.AssertExpectations(t)
 }
 
 func Test_AccessShortCode_NotFound(t *testing.T) {
 	mockService := new(service.MockShortUrlService)
-	handler := NewShortUrlHandler(mockService)
+	mockClickService := new(service.MockClickEventService)
+	handler := NewShortUrlHandler(mockService, mockClickService)
 
-	// 1. Setup Mock: Gagal menemukan short code (mengembalikan error)
 	mockService.On("GetShortUrlByShortCode", mock.Anything, "zonk").
 		Return(nil, errors.New("short code not found in database"))
 
@@ -171,15 +180,14 @@ func Test_AccessShortCode_NotFound(t *testing.T) {
 		httprouter.Param{Key: "shortCode", Value: "zonk"},
 	}
 
-	// 2. Eksekusi Handler
 	handler.AccessShortCode(recorder, request, params)
 
-	// 3. Assertions: Harus 400 Bad Request dan mengembalikan pesan error JSON
 	assert.Equal(t, http.StatusBadRequest, recorder.Code)
 	assert.Equal(t, "application/json", recorder.Header().Get("Content-Type"))
 	assert.Contains(t, recorder.Body.String(), "Short code not found")
 
 	mockService.AssertExpectations(t)
+	mockClickService.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
 }
 
 func GenerateJWTToken(userId int64, email string, secretKey string) string {

@@ -22,9 +22,13 @@ func main() {
 		log.Println("Warning: JWT_SECRET env is not set, using default fallback key")
 	}
 
+	clickEventRepo := repository.NewClickEventsRepository(database)
+	clickEventService := service.NewClickEventService(clickEventRepo)
+	clickEventHandler := handler.NewClickEventHandler(clickEventService)
+
 	shortUrlRepo := repository.NewShortUrlRepository(database)
 	shortUrlService := service.NewShortUrlService(shortUrlRepo)
-	shortUrlHandler := handler.NewShortUrlHandler(shortUrlService)
+	shortUrlHandler := handler.NewShortUrlHandler(shortUrlService, clickEventService)
 
 	userRepo := repository.NewUserRepository(database)
 	userService := service.NewUserService(userRepo, []byte(JwtSecret))
@@ -37,6 +41,8 @@ func main() {
 
 	router.POST("/user/login", userHandler.Login)
 	router.POST("/user/register", userHandler.Register)
+
+	router.GET("/api/urls/:shortUrlId/analytics", middleware.AuthMiddleware(JwtSecret)(clickEventHandler.FindByShortUrlId))
 
 	logger := middleware.Logger(router)
 

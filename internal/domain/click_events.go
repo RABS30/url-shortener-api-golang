@@ -15,10 +15,11 @@ type ClickEvent struct {
 }
 
 type ClickEventRepository interface {
-	Create(ctx context.Context, passwordResetToken *ClickEvent) (*ClickEvent, error)
-	Delete(ctx context.Context, id int64) error
-	FindById(ctx context.Context, id int64) (*ClickEvent, error)
-	FindByShortCode(ctx context.Context, shortCode string) ([]ClickEvent, error)
-	FilterByDate(ctx context.Context, date time.Time) ([]ClickEvent, error)
-	FindAll(ctx context.Context) ([]ClickEvent, error)
+	Create(ctx context.Context, clickEvent *ClickEvent) (*ClickEvent, error)
+	FindByShortUrlId(ctx context.Context, shortUrlId int64, userId int64) ([]ClickEvent, error)
+}
+
+type ClickEventService interface {
+	Create(ctx context.Context, clickEvent *ClickEvent) (*ClickEvent, error)
+	FindByShortUrlId(ctx context.Context, shortUrlId int64, userId int64) ([]ClickEvent, error)
 }

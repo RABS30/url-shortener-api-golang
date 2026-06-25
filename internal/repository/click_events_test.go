@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"shorter-url/internal/domain"
 	"testing"
 	"time"
@@ -13,14 +14,10 @@ import (
 func Test_Create_CreateEvent_Pass(t *testing.T) {
 	mockPool, err := pgxmock.NewPool()
 	assert.NoError(t, err)
-
 	defer mockPool.Close()
-	defer func() {
-		err := mockPool.ExpectationsWereMet()
-		assert.NoError(t, err)
-	}()
 
 	ctx := context.Background()
+	dateExample := time.Now()
 
 	inputData := &domain.ClickEvent{
 		ShortUrlId: 1,
@@ -29,256 +26,106 @@ func Test_Create_CreateEvent_Pass(t *testing.T) {
 		Referer:    "https://google.com",
 	}
 
-	dateExample := time.Now()
-	expectedData := &domain.ClickEvent{
-		Id:         42,
-		ShortUrlId: inputData.ShortUrlId,
-		IpAddress:  inputData.IpAddress,
-		UserAgent:  inputData.UserAgent,
-		Referer:    inputData.Referer,
-		ClickedAt:  dateExample,
-	}
-
-	query := `^INSERT INTO click_events\(short_url_id, ip_address, user_agent, referer\)VALUES\(\$1, \$2, \$3, \$4\) RETURNING id, ip_address, short_url_id, user_agent, referer, clicked_at$`
 	mockRows := pgxmock.NewRows([]string{"id", "ip_address", "short_url_id", "user_agent", "referer", "clicked_at"}).
-		AddRow(
-			expectedData.Id,
-			expectedData.IpAddress,
-			expectedData.ShortUrlId,
-			expectedData.UserAgent,
-			expectedData.Referer,
-			expectedData.ClickedAt,
-		)
+		AddRow(int64(42), inputData.IpAddress, inputData.ShortUrlId, inputData.UserAgent, inputData.Referer, dateExample)
 
-	mockPool.ExpectQuery(query).WithArgs(inputData.ShortUrlId, inputData.IpAddress, inputData.UserAgent, inputData.Referer).WillReturnRows(mockRows)
+	queryRegex := `^INSERT INTO click_events\s*\(short_url_id, ip_address, user_agent, referer\)\s*VALUES\s*\(\$1, \$2, \$3, \$4\)\s*RETURNING id, ip_address, short_url_id, user_agent, referer, clicked_at$`
+
+	mockPool.ExpectQuery(queryRegex).
+		WithArgs(inputData.ShortUrlId, inputData.IpAddress, inputData.UserAgent, inputData.Referer).
+		WillReturnRows(mockRows)
 
 	repo := NewClickEventsRepository(mockPool)
 	result, err := repo.Create(ctx, inputData)
 
 	assert.NoError(t, err)
-	assert.Equal(t, expectedData, result)
+	assert.NotNil(t, result)
+	assert.Equal(t, int64(42), result.Id)
+	assert.Equal(t, dateExample, result.ClickedAt)
+
+	assert.NoError(t, mockPool.ExpectationsWereMet())
 }
 
-func Test_Delete_CreateEvent_Pass(t *testing.T) {
+func Test_Create_CreateEvent_Fail(t *testing.T) {
 	mockPool, err := pgxmock.NewPool()
 	assert.NoError(t, err)
-
 	defer mockPool.Close()
-	defer func() {
-		err := mockPool.ExpectationsWereMet()
-		assert.NoError(t, err)
-	}()
 
 	ctx := context.Background()
-	id := int64(1)
+	inputData := &domain.ClickEvent{
+		ShortUrlId: 1,
+		IpAddress:  "192.168.1.1",
+	}
 
-	query := `^DELETE FROM click_events WHERE id = \$1$`
-
-	mockPool.ExpectExec(query).WithArgs(id).WillReturnResult(pgxmock.NewResult("DELETE", 1))
-
-	repo := NewClickEventsRepository(mockPool)
-	err = repo.Delete(ctx, id)
-
-	assert.NoError(t, err)
-
-}
-
-func Test_Delete_CreateEvent_Fail(t *testing.T) {
-	mockPool, err := pgxmock.NewPool()
-	assert.NoError(t, err)
-
-	defer mockPool.Close()
-	defer func() {
-		err := mockPool.ExpectationsWereMet()
-		assert.NoError(t, err)
-	}()
-
-	ctx := context.Background()
-	id := int64(99)
-
-	query := `^DELETE FROM click_events WHERE id = \$1$`
-
-	mockPool.ExpectExec(query).WithArgs(id).WillReturnResult(pgxmock.NewResult("DELETE", 0))
+	queryRegex := `^INSERT INTO click_events.*`
+	mockPool.ExpectQuery(queryRegex).
+		WithArgs(inputData.ShortUrlId, inputData.IpAddress, inputData.UserAgent, inputData.Referer).
+		WillReturnError(fmt.Errorf("database connection closed"))
 
 	repo := NewClickEventsRepository(mockPool)
-	err = repo.Delete(ctx, id)
+	result, err := repo.Create(ctx, inputData)
 
 	assert.Error(t, err)
-	assert.ErrorContains(t, err, "there is no data deleted")
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "something wrong when create data in click event")
+
+	assert.NoError(t, mockPool.ExpectationsWereMet())
 }
 
-func Test_FindById_CreateEvent_Pass(t *testing.T) {
+func Test_FindByShortUrlId_Pass(t *testing.T) {
 	mockPool, err := pgxmock.NewPool()
 	assert.NoError(t, err)
-
 	defer mockPool.Close()
-	defer func() {
-		err := mockPool.ExpectationsWereMet()
-		assert.NoError(t, err)
-	}()
 
 	ctx := context.Background()
+	var targetShortUrlId int64 = 99
+	var targetUserId int64 = 1 // Tambahkan mock User ID yang merequest rabs
+	dateExample := time.Now()
 
-	id := int64(1)
-	now := time.Now()
+	mockRows := pgxmock.NewRows([]string{"id", "short_url_id", "ip_address", "user_agent", "referer", "clicked_at"}).
+		AddRow(int64(1), targetShortUrlId, "192.168.1.1", "Chrome", "Direct", dateExample).
+		AddRow(int64(2), targetShortUrlId, "192.168.1.2", "Safari", "https://github.com", dateExample)
 
-	expectedData := &domain.ClickEvent{
-		Id:         id,
-		IpAddress:  "127.0.0.1",
-		ShortUrlId: 2,
-		UserAgent:  "Mozilla",
-		Referer:    "Google",
-		ClickedAt:  now,
-	}
+	queryRegex := `(?i)^SELECT\s+ce\.id,\s+ce\.short_url_id,\s+ce\.ip_address,\s+ce\.user_agent,\s+ce\.referer,\s+ce\.clicked_at\s+FROM\s+click_event\s+ce\s+INNER\s+JOIN\s+short_urls\s+su\s+ON\s+ce\.short_url_id\s+=\s+su\.id\s+WHERE\s+ce\.short_url_id\s+=\s+\$1\s+AND\s+su\.user_id\s+=\s+\$2$`
 
-	query := `^SELECT id, short_url_id, ip_address, user_agent, referer, clicked_at FROM click_events WHERE id = \$1$`
-
-	mockRow := pgxmock.NewRows([]string{"id", "short_url_id", "ip_address", "user_agent", "referer", "clicked_at"}).AddRow(
-		expectedData.Id,
-		expectedData.ShortUrlId,
-		expectedData.IpAddress,
-		expectedData.UserAgent,
-		expectedData.Referer,
-		expectedData.ClickedAt,
-	)
-
-	mockPool.ExpectQuery(query).WithArgs(id).WillReturnRows(mockRow)
+	mockPool.ExpectQuery(queryRegex).
+		WithArgs(targetShortUrlId, targetUserId). // Wajib menyertakan targetUserId ($2)
+		WillReturnRows(mockRows)
 
 	repo := NewClickEventsRepository(mockPool)
-	result, err := repo.FindById(ctx, id)
+	// Masukkan targetUserId ke dalam parameter panggil ketiga
+	results, err := repo.FindByShortUrlId(ctx, targetShortUrlId, targetUserId)
 
 	assert.NoError(t, err)
-	assert.Equal(t, expectedData, result)
+	assert.Len(t, results, 2)
+	assert.Equal(t, targetShortUrlId, results[0].ShortUrlId)
+	assert.Equal(t, "Chrome", results[0].UserAgent)
 
+	assert.NoError(t, mockPool.ExpectationsWereMet())
 }
 
-func Test_FindByShortCode_CreateEvent_Pass(t *testing.T) {
+func Test_FindByShortUrlId_Fail_QueryError(t *testing.T) {
 	mockPool, err := pgxmock.NewPool()
 	assert.NoError(t, err)
-
 	defer mockPool.Close()
-	defer func() {
-		err := mockPool.ExpectationsWereMet()
-		assert.NoError(t, err)
-	}()
 
 	ctx := context.Background()
+	var targetShortUrlId int64 = 99
+	var targetUserId int64 = 1
 
-	shortCode := "abcd"
-	now := time.Now()
+	// Regex fleksibel menangkap query SELECT yang gagal
+	queryRegex := `(?i)^SELECT\s+ce\.id,\s+ce\.short_url_id.*`
 
-	expectedData := domain.ClickEvent{
-		Id:         1,
-		ShortUrlId: 2,
-		IpAddress:  "127.0.0.1",
-		UserAgent:  "Mozilla",
-		Referer:    "Google",
-		ClickedAt:  now,
-	}
-
-	query := `^SELECT ce.id, ce.short_url_id, ce.ip_address, ce.user_agent, ce.referer, ce.clicked_at FROM click_events ce JOIN short_urls su ON ce.short_url_id = su.id WHERE su.short_code = \$1$`
-
-	mockRow := pgxmock.NewRows([]string{"id", "short_url_id", "ip_address", "user_agent", "referer", "clicked_at"}).AddRow(
-		expectedData.Id,
-		expectedData.ShortUrlId,
-		expectedData.IpAddress,
-		expectedData.UserAgent,
-		expectedData.Referer,
-		expectedData.ClickedAt,
-	)
-
-	mockPool.ExpectQuery(query).WithArgs(shortCode).WillReturnRows(mockRow)
+	mockPool.ExpectQuery(queryRegex).
+		WithArgs(targetShortUrlId, targetUserId). // Samakan argumennya rabs
+		WillReturnError(fmt.Errorf("syntax error"))
 
 	repo := NewClickEventsRepository(mockPool)
-	result, err := repo.FindByShortCode(ctx, shortCode)
+	results, err := repo.FindByShortUrlId(ctx, targetShortUrlId, targetUserId)
 
-	assert.NoError(t, err)
-	assert.Len(t, result, 1)
-	assert.Equal(t, expectedData, result[0])
-}
+	assert.Error(t, err)
+	assert.Nil(t, results)
+	assert.Contains(t, err.Error(), "something wrong when find click events by short code")
 
-func Test_FilterByDat_CreateEvent_Pass(t *testing.T) {
-	mockPool, err := pgxmock.NewPool()
-	assert.NoError(t, err)
-
-	defer mockPool.Close()
-	defer func() {
-		err := mockPool.ExpectationsWereMet()
-		assert.NoError(t, err)
-	}()
-
-	ctx := context.Background()
-	date := time.Now()
-
-	expectedData := domain.ClickEvent{
-		Id:         1,
-		IpAddress:  "127.0.0.1",
-		ShortUrlId: 2,
-		UserAgent:  "Mozilla",
-		Referer:    "Google",
-		ClickedAt:  date,
-	}
-
-	query := `^SELECT id, ip_address, short_url_id, user_agent, referer, clicked_at FROM click_events WHERE DATE\(clicked_at\) = \$1$`
-
-	mockRow := pgxmock.NewRows([]string{"id", "ip_address", "short_url_id", "user_agent", "referer", "clicked_at"}).AddRow(
-		expectedData.Id,
-		expectedData.IpAddress,
-		expectedData.ShortUrlId,
-		expectedData.UserAgent,
-		expectedData.Referer,
-		expectedData.ClickedAt,
-	)
-
-	mockPool.ExpectQuery(query).WithArgs(date.Format("2006-01-02")).WillReturnRows(mockRow)
-
-	repo := NewClickEventsRepository(mockPool)
-	result, err := repo.FilterByDate(ctx, date)
-
-	assert.NoError(t, err)
-	assert.Len(t, result, 1)
-	assert.Equal(t, expectedData, result[0])
-}
-
-func Test_FindAll_CreateEvent_Pass(t *testing.T) {
-	mockPool, err := pgxmock.NewPool()
-	assert.NoError(t, err)
-
-	defer mockPool.Close()
-	defer func() {
-		err := mockPool.ExpectationsWereMet()
-		assert.NoError(t, err)
-	}()
-
-	ctx := context.Background()
-	now := time.Now()
-
-	expectedData := domain.ClickEvent{
-		Id:         1,
-		IpAddress:  "127.0.0.1",
-		ShortUrlId: 2,
-		UserAgent:  "Mozilla",
-		Referer:    "Google",
-		ClickedAt:  now,
-	}
-
-	query := `^SELECT id, short_url_id, ip_address, user_agent, referer, clicked_at FROM click_events$`
-
-	mockRow := pgxmock.NewRows([]string{"id", "short_url_id", "ip_address", "user_agent", "referer", "clicked_at"}).AddRow(
-		expectedData.Id,
-		expectedData.ShortUrlId,
-		expectedData.IpAddress,
-		expectedData.UserAgent,
-		expectedData.Referer,
-		expectedData.ClickedAt,
-	)
-
-	mockPool.ExpectQuery(query).WillReturnRows(mockRow)
-
-	repo := NewClickEventsRepository(mockPool)
-	result, err := repo.FindAll(ctx)
-
-	assert.NoError(t, err)
-	assert.Len(t, result, 1)
-	assert.Equal(t, expectedData, result[0])
+	assert.NoError(t, mockPool.ExpectationsWereMet())
 }
