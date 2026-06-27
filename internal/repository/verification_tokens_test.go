@@ -23,7 +23,6 @@ func Test_Create_VerificationTokens_Pass(t *testing.T) {
 
 	ctx := context.Background()
 
-	// 🌟 PERBAIKAN: Gunakan waktu statis agar tidak memicu flaky test akibat mikrodetik
 	fixedTime := time.Date(2026, 6, 17, 10, 0, 0, 0, time.UTC)
 
 	inputData := &domain.VerificationToken{
@@ -37,15 +36,17 @@ func Test_Create_VerificationTokens_Pass(t *testing.T) {
 		UserId:    inputData.UserId,
 		Token:     inputData.Token,
 		ExpiredAt: inputData.ExpiredAt,
+		CreatedAt: time.Now(),
 	}
 
-	queryPattern := `^INSERT INTO verification_tokens \(user_id, token, expired_at\) VALUES \(\$1, \$2, \$3\) RETURNING id, user_id, token, expired_at$`
+	queryPattern := `^INSERT INTO verification_tokens \(user_id, token, expired_at\) VALUES \(\$1, \$2, \$3\) RETURNING id, user_id, token, expired_at, created_at$`
 
-	mockRow := pgxmock.NewRows([]string{"id", "user_id", "token", "expired_at"}).AddRow(
+	mockRow := pgxmock.NewRows([]string{"id", "user_id", "token", "expired_at", "created_at"}).AddRow(
 		expectedData.Id,
 		expectedData.UserId,
 		expectedData.Token,
 		expectedData.ExpiredAt,
+		expectedData.CreatedAt,
 	)
 
 	mockPool.ExpectQuery(queryPattern).
@@ -76,7 +77,7 @@ func Test_Create_VerificationTokens_Fail(t *testing.T) {
 		ExpiredAt: fixedTime,
 	}
 
-	queryPattern := `^INSERT INTO verification_tokens \(user_id, token, expired_at\) VALUES \(\$1, \$2, \$3\) RETURNING id, user_id, token, expired_at$`
+	queryPattern := `^INSERT INTO verification_tokens \(user_id, token, expired_at\) VALUES \(\$1, \$2, \$3\) RETURNING id, user_id, token, expired_at, created_at$`
 
 	mockPool.ExpectQuery(queryPattern).
 		WithArgs(inputData.UserId, inputData.Token, inputData.ExpiredAt).
@@ -151,15 +152,17 @@ func Test_FindByToken_VerificationTokens_Pass(t *testing.T) {
 		UserId:    2,
 		Token:     token,
 		ExpiredAt: fixedTime,
+		CreatedAt: time.Now(),
 	}
 
-	query := `^SELECT id, user_id, token, expired_at FROM verification_tokens WHERE token = \$1$`
+	query := `^SELECT id, user_id, token, expired_at, created_at FROM verification_tokens WHERE token = \$1$`
 
-	mockRow := pgxmock.NewRows([]string{"id", "user_id", "token", "expired_at"}).AddRow(
+	mockRow := pgxmock.NewRows([]string{"id", "user_id", "token", "expired_at", "created_at"}).AddRow(
 		expectedData.Id,
 		expectedData.UserId,
 		expectedData.Token,
 		expectedData.ExpiredAt,
+		expectedData.CreatedAt,
 	)
 
 	mockPool.ExpectQuery(query).WithArgs(token).WillReturnRows(mockRow)
@@ -182,7 +185,7 @@ func Test_FindByToken_VerificationTokens_Fail(t *testing.T) {
 	ctx := context.Background()
 	token := "test-token"
 
-	query := `^SELECT id, user_id, token, expired_at FROM verification_tokens WHERE token = \$1$`
+	query := `^SELECT id, user_id, token, expired_at, created_at FROM verification_tokens WHERE token = \$1$`
 
 	// QueryRow().Scan() data kosong mengembalikan pgx.ErrNoRows asli database
 	mockPool.ExpectQuery(query).WithArgs(token).WillReturnError(pgx.ErrNoRows)
@@ -206,7 +209,7 @@ func Test_FindByToken_VerificationTokens_Error(t *testing.T) {
 	ctx := context.Background()
 	token := "test-token"
 
-	query := `^SELECT id, user_id, token, expired_at FROM verification_tokens WHERE token = \$1$`
+	query := `^SELECT id, user_id, token, expired_at, created_at FROM verification_tokens WHERE token = \$1$`
 
 	mockPool.ExpectQuery(query).WithArgs(token).WillReturnError(fmt.Errorf("db error"))
 
@@ -216,6 +219,5 @@ func Test_FindByToken_VerificationTokens_Error(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, result)
 
-	// 🌟 PERBAIKAN: Menyelaraskan teks asersi sesuai dengan string di repositori asli (memakai spasi sebelum tanda titik dua ':')
 	assert.Contains(t, err.Error(), "something wrong when find verification token by token ")
 }

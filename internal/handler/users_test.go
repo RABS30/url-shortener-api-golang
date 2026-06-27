@@ -13,10 +13,6 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-// =========================================================================
-// UNIT TEST FOR REGISTER
-// =========================================================================
-
 func Test_Register_Pass(t *testing.T) {
 	mockAuth := new(service.MockAuthService)
 	handler := NewUserHandler(mockAuth)
@@ -47,7 +43,7 @@ func Test_Register_InvalidJSON(t *testing.T) {
 	handler.Register(recorder, request, nil)
 
 	assert.Equal(t, http.StatusBadRequest, recorder.Code)
-	assert.Contains(t, recorder.Body.String(), "invalid json format")
+	assert.Contains(t, recorder.Body.String(), "invalid request payload")
 	mockAuth.AssertNotCalled(t, "Register", mock.Anything, mock.Anything, mock.Anything)
 }
 
@@ -81,7 +77,6 @@ func Test_Register_ServiceError(t *testing.T) {
 	assert.Contains(t, recorder.Body.String(), "email already exists")
 	mockAuth.AssertExpectations(t)
 }
-
 
 func Test_Login_Pass(t *testing.T) {
 	mockAuth := new(service.MockAuthService)

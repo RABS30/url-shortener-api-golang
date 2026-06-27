@@ -38,9 +38,15 @@ func Test_Create_PasswordResetTokens_Pass(t *testing.T) {
 		ExpiredAt: inputData.ExpiredAt,
 	}
 
-	queryPattern := `^INSERT INTO password_reset_tokens \(user_id, token, expired_at\) VALUES \(\$1, \$2, \$3\) RETURNING id$`
+	queryPattern := `^INSERT INTO password_reset_tokens \(user_id, token, expired_at\) VALUES \(\$1, \$2, \$3\) RETURNING id, user_id, token, expired_at, created_at$`
 
-	mockRow := pgxmock.NewRows([]string{"id"}).AddRow(expectedData.Id)
+	mockRow := pgxmock.NewRows([]string{"id", "user_id", "token", "expired_at", "created_at"}).AddRow(
+		expectedData.Id,
+		expectedData.UserId,
+		expectedData.Token,
+		expectedData.ExpiredAt,
+		expectedData.CreatedAt,
+	)
 
 	mockPool.ExpectQuery(queryPattern).WithArgs(inputData.UserId, inputData.Token, inputData.ExpiredAt).WillReturnRows(mockRow)
 
@@ -70,7 +76,7 @@ func Test_Create_PasswordResetTokens_Fail(t *testing.T) {
 		ExpiredAt: dateExample,
 	}
 
-	queryPattern := `^INSERT INTO password_reset_tokens \(user_id, token, expired_at\) VALUES \(\$1, \$2, \$3\) RETURNING id$`
+	queryPattern := `^INSERT INTO password_reset_tokens \(user_id, token, expired_at\) VALUES \(\$1, \$2, \$3\) RETURNING id, user_id, token, expired_at, created_at$`
 
 	mockPool.ExpectQuery(queryPattern).WithArgs(inputData.UserId, inputData.Token, inputData.ExpiredAt).WillReturnError(fmt.Errorf("driver: bad connection"))
 
@@ -149,15 +155,17 @@ func Test_FindByToken_PasswordResetTokens_Pass(t *testing.T) {
 		UserId:    2,
 		Token:     token,
 		ExpiredAt: expiredAt,
+		CreatedAt: time.Now(),
 	}
 
-	query := `^SELECT id, user_id, token, expired_at FROM password_reset_tokens WHERE token = \$1$`
+	query := `^SELECT id, user_id, token, expired_at, created_at FROM password_reset_tokens WHERE token = \$1$`
 
-	mockRow := pgxmock.NewRows([]string{"id", "user_id", "token", "expired_at"}).AddRow(
+	mockRow := pgxmock.NewRows([]string{"id", "user_id", "token", "expired_at", "created_at"}).AddRow(
 		expectedData.Id,
 		expectedData.UserId,
 		expectedData.Token,
 		expectedData.ExpiredAt,
+		expectedData.CreatedAt,
 	)
 
 	mockPool.ExpectQuery(query).WithArgs(token).WillReturnRows(mockRow)
@@ -182,7 +190,7 @@ func Test_FindByToken_PasswordResetTokens_Fail(t *testing.T) {
 	ctx := context.Background()
 	token := "test-token"
 
-	query := `^SELECT id, user_id, token, expired_at FROM password_reset_tokens WHERE token = \$1$`
+	query := `^SELECT id, user_id, token, expired_at, created_at FROM password_reset_tokens WHERE token = \$1$`
 
 	mockPool.ExpectQuery(query).WithArgs(token).WillReturnError(pgx.ErrNoRows)
 
@@ -197,7 +205,7 @@ func Test_FindByToken_PasswordResetTokens_Fail(t *testing.T) {
 func Test_FindByToken_PasswordResetTokens_Error(t *testing.T) {
 	mockPool, err := pgxmock.NewPool()
 	assert.NoError(t, err)
-	
+
 	defer mockPool.Close()
 	defer func() {
 		err := mockPool.ExpectationsWereMet()
@@ -207,8 +215,7 @@ func Test_FindByToken_PasswordResetTokens_Error(t *testing.T) {
 	ctx := context.Background()
 	token := "test-token"
 
-	query := `^SELECT id, user_id, token, expired_at FROM password_reset_tokens WHERE token = \$1$`
-
+	query := `^SELECT id, user_id, token, expired_at, created_at FROM password_reset_tokens WHERE token = \$1$`
 	mockPool.ExpectQuery(query).WithArgs(token).WillReturnError(fmt.Errorf("db error"))
 
 	repo := NewPasswordResetTokensRepository(mockPool)

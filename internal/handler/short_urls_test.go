@@ -59,7 +59,7 @@ func Test_Create_ShortUrl_Pass(t *testing.T) {
 	err := json.Unmarshal(recorder.Body.Bytes(), &responseBody)
 	assert.NoError(t, err, "Response body harus berupa format JSON yang valid")
 
-	assert.Equal(t, "Short code created successfuly", responseBody.Message)
+	assert.Equal(t, "Short code created successfully", responseBody.Message)
 	assert.Equal(t, int64(1), responseBody.Data.Id)
 	assert.Equal(t, "hihihi", responseBody.Data.ShortCode)
 	assert.Equal(t, "https://www.google.com", responseBody.Data.OriginalUrl)
@@ -105,7 +105,7 @@ func Test_Create_ShortUrl_InvalidJSON(t *testing.T) {
 
 	handler.Create(recorder, request, nil)
 
-	assert.Contains(t, recorder.Body.String(), "invalid json format")
+	assert.Contains(t, recorder.Body.String(), "invalid request payload")
 	assert.Equal(t, http.StatusBadRequest, recorder.Code)
 	assert.Equal(t, "application/json", recorder.Header().Get("Content-Type"))
 
@@ -184,7 +184,7 @@ func Test_AccessShortCode_NotFound(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, recorder.Code)
 	assert.Equal(t, "application/json", recorder.Header().Get("Content-Type"))
-	assert.Contains(t, recorder.Body.String(), "Short code not found")
+	assert.Contains(t, recorder.Body.String(), "short code not found")
 
 	mockService.AssertExpectations(t)
 	mockClickService.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)

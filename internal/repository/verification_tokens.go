@@ -35,9 +35,7 @@ func (v *verificationTokenRepository) Delete(ctx context.Context, id int64) erro
 
 func (v *verificationTokenRepository) Create(ctx context.Context, verificationToken *domain.VerificationToken) (*domain.VerificationToken, error) {
 	// Tambahkan created_at ke dalam RETURNING dan Scan
-	query := `INSERT INTO verification_tokens (user_id, token, expired_at) 
-	          VALUES ($1, $2, $3) 
-	          RETURNING id, user_id, token, expired_at, created_at`
+	query := `INSERT INTO verification_tokens (user_id, token, expired_at) VALUES ($1, $2, $3) RETURNING id, user_id, token, expired_at, created_at`
 
 	err := v.db.QueryRow(ctx, query, verificationToken.UserId, verificationToken.Token, verificationToken.ExpiredAt).
 		Scan(&verificationToken.Id, &verificationToken.UserId, &verificationToken.Token, &verificationToken.ExpiredAt, &verificationToken.CreatedAt)

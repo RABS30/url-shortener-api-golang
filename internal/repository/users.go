@@ -48,7 +48,7 @@ func (u *userRepository) Update(ctx context.Context, user *domain.User) (*domain
 }
 
 func (r *userRepository) UpdatePassword(ctx context.Context, userId int64, hashedPassword string) error {
-	query := "UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2"
+	query := "UPDATE users SET password_hash = $1 WHERE id = $2"
 
 	result, err := r.db.Exec(ctx, query, hashedPassword, userId)
 	if err != nil {
@@ -97,9 +97,9 @@ func (u *userRepository) FindByEmail(ctx context.Context, email string) (*domain
 	err := u.db.QueryRow(ctx, query, email).Scan(&user.Id, &user.Email, &user.PasswordHash, &user.IsVerified, &user.Status, &user.CreatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil
+			return nil, fmt.Errorf("user not found, %w", err)
 		}
-		return nil, fmt.Errorf("something error when find user by email : %w", err)
+		return nil, fmt.Errorf("something wrong when find short url by id : %w", err)
 	}
 	return user, nil
 }

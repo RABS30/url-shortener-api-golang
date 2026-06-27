@@ -284,5 +284,5 @@ func Test_FindByEmail_Users_Fail(t *testing.T) {
 	result, err := repo.FindByEmail(ctx, email)
 
 	assert.Nil(t, result)
-	assert.ErrorContains(t, err, "user dengan email rokubi27@gmail.com tidak ditemukan")
+	assert.ErrorContains(t, err, "user not found")
 }

@@ -38,12 +38,6 @@ func AuthMiddleware(secretKey string) func(httprouter.Handle) httprouter.Handle 
 			tokenString := cookie.Value
 
 			claims := &Claims{}
-			// token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (any, error) {
-			// 	if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-			// 		return nil, errors.New("token encryption method invalid")
-			// 	}
-			// 	return []byte(secretKey), nil
-			// })
 
 			token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (any, error) {
 				return []byte(secretKey), nil
@@ -72,6 +66,6 @@ func GetUserIDFromContext(r *http.Request, key any) (int64, error) {
 	if userID, ok := userIDContext.(int64); ok {
 		return userID, nil
 	}
-	
+
 	return 0, fmt.Errorf("invalid id")
 }

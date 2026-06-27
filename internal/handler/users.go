@@ -1,10 +1,12 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"shorter-url/internal/domain"
 	"shorter-url/internal/helper"
+	"shorter-url/internal/middleware"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -36,7 +38,10 @@ func (h *userHandler) Register(w http.ResponseWriter, r *http.Request, p httprou
 	request.DisallowUnknownFields()
 	err := request.Decode(&req)
 	if err != nil {
-		helper.BadResponse(w, http.StatusBadRequest, "invalid json format")
+		errorCtx := context.WithValue(r.Context(), middleware.ErrorLogKey, err)
+		*r = *r.WithContext(errorCtx)
+
+		helper.BadResponse(w, http.StatusBadRequest, "invalid request payload")
 		return
 	}
 
@@ -48,8 +53,10 @@ func (h *userHandler) Register(w http.ResponseWriter, r *http.Request, p httprou
 	ctx := r.Context()
 	user, err := h.UserService.Register(ctx, req.Email, req.Password)
 	if err != nil {
-		helper.BadResponse(w, http.StatusBadRequest, err.Error())
+		errorCtx := context.WithValue(r.Context(), middleware.ErrorLogKey, err)
+		*r = *r.WithContext(errorCtx)
 
+		helper.BadResponse(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -68,14 +75,15 @@ func (h *userHandler) Login(w http.ResponseWriter, r *http.Request, p httprouter
 	request.DisallowUnknownFields()
 	err := request.Decode(&req)
 	if err != nil {
-		helper.BadResponse(w, http.StatusBadRequest, "invalid json format")
+		errorCtx := context.WithValue(r.Context(), middleware.ErrorLogKey, err)
+		*r = *r.WithContext(errorCtx)
 
+		helper.BadResponse(w, http.StatusBadRequest, "invalid json format")
 		return
 	}
 
 	if req.Email == "" || req.Password == "" {
 		helper.BadResponse(w, http.StatusBadRequest, "email and password are required")
-
 		return
 	}
 
@@ -83,8 +91,10 @@ func (h *userHandler) Login(w http.ResponseWriter, r *http.Request, p httprouter
 
 	token, err := h.UserService.Login(ctx, req.Email, req.Password)
 	if err != nil {
-		helper.BadResponse(w, http.StatusUnauthorized, err.Error())
+		errorCtx := context.WithValue(r.Context(), middleware.ErrorLogKey, err)
+		*r = *r.WithContext(errorCtx)
 
+		helper.BadResponse(w, http.StatusUnauthorized, err.Error())
 		return
 	}
 

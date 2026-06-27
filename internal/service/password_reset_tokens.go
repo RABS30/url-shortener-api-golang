@@ -24,6 +24,7 @@ func NewPasswordResetTokensService(repo domain.PasswordResetTokensRepository, us
 		users:       users,
 		emailSender: emailSender,
 		hasher:      hasher,
+		baseUrl:     baseUrl,
 	}
 }
 
@@ -31,6 +32,9 @@ func (s *passwordResetTokensService) RequestResetPassword(ctx context.Context, e
 	user, err := s.users.FindByEmail(ctx, email)
 	if err != nil {
 		return err
+	}
+	if user == nil {
+		return nil
 	}
 
 	token, err := helper.GenerateRandomToken(16)
@@ -49,7 +53,14 @@ func (s *passwordResetTokensService) RequestResetPassword(ctx context.Context, e
 		return err
 	}
 
+	// dataTemplate := struct {
+	// 	Email    string
+	// 	ResetURL string
+	// }{
+	// 	Email:    user.Email,
+	// }
 	resetURL := fmt.Sprintf("%s/reset-password?token=%s", s.baseUrl, token)
+
 	subject := "Permintaan Reset Password Akun Anda"
 	body := fmt.Sprintf(`
 		<h3>Halo, %s</h3>
