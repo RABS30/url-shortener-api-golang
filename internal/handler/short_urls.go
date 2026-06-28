@@ -33,7 +33,7 @@ func NewShortUrlHandler(service domain.ShortUrlsService, clickEvent domain.Click
 }
 
 func (s *shortUrlHandler) Create(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	userId, err := middleware.GetUserIDFromContext(r, middleware.UserIDKey)
+	userId, err := middleware.GetUserIDFromContext(r, middleware.UserClaims)
 	if err != nil {
 		errorCtx := context.WithValue(r.Context(), middleware.ErrorLogKey, err)
 		*r = *r.WithContext(errorCtx)

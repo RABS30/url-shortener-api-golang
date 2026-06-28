@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -26,7 +27,9 @@ func NewUserService(repo domain.UserRepository, JwtSecret []byte) domain.AuthSer
 func (s *userService) Register(ctx context.Context, email string, password string) (*domain.User, error) {
 	existingUser, err := s.repo.FindByEmail(ctx, email)
 	if err != nil {
-		return nil, fmt.Errorf("something error with database,  %w", err)
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("something error with database,  %w", err)
+		}
 	}
 	if existingUser != nil {
 		return nil, errors.New("email already exist, use another email")
@@ -67,9 +70,10 @@ func (s *userService) Login(ctx context.Context, email string, password string) 
 	}
 
 	claims := jwt.MapClaims{
-		"user_id": existingUser.Id,
-		"email":   existingUser.Email,
-		"exp":     time.Now().Add(time.Hour * 24).Unix(),
+		"user_id":     existingUser.Id,
+		"email":       existingUser.Email,
+		"is_verified": existingUser.IsVerified,
+		"exp":         time.Now().Add(time.Hour * 24).Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

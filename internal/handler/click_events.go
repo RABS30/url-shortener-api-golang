@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"shorter-url/internal/domain"
 	"shorter-url/internal/helper"
@@ -22,7 +23,7 @@ func NewClickEventHandler(service domain.ClickEventService) *clickEventHandler {
 }
 
 func (h *clickEventHandler) FindByShortUrlId(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	userID, err := middleware.GetUserIDFromContext(r, middleware.UserIDKey)
+	userId, err := middleware.GetUserIDFromContext(r, middleware.UserClaims)
 	if err != nil {
 		errorCtx := context.WithValue(r.Context(), middleware.ErrorLogKey, err)
 		*r = *r.WithContext(errorCtx)
@@ -43,12 +44,12 @@ func (h *clickEventHandler) FindByShortUrlId(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	listEvent, err := h.Service.FindByShortUrlId(ctx, shortUrlId, userID)
+	listEvent, err := h.Service.FindByShortUrlId(ctx, shortUrlId, userId)
 	if err != nil {
 		errorCtx := context.WithValue(r.Context(), middleware.ErrorLogKey, err)
 		*r = *r.WithContext(errorCtx)
 
-		helper.BadResponse(w, http.StatusNotFound, "click event not found")
+		helper.BadResponse(w, http.StatusNotFound, fmt.Sprintf("click event not found with Short ID: %d and User ID:%d", shortUrlId, userId))
 		return
 	}
 

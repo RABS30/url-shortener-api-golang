@@ -38,7 +38,7 @@ func Test_Create_ShortUrl_Pass(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, "localhost:8080/api/urls", strings.NewReader(bodyJson))
 
-	ctx := context.WithValue(request.Context(), middleware.UserIDKey, int64(1))
+	ctx := context.WithValue(request.Context(), middleware.UserClaims, int64(1))
 	request = request.WithContext(ctx)
 
 	handler.Create(recorder, request, nil)
@@ -79,7 +79,7 @@ func Test_Creat_ShortUrl_Unauthorized(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, "localhost:8080/api/urls", strings.NewReader(`{"original_url":"https://www.google.com"}`))
 
-	ctx := context.WithValue(request.Context(), middleware.UserIDKey, int64(0))
+	ctx := context.WithValue(request.Context(), middleware.UserClaims, int64(0))
 	request = request.WithContext(ctx)
 
 	handler.Create(recorder, request, nil)
@@ -100,7 +100,7 @@ func Test_Create_ShortUrl_InvalidJSON(t *testing.T) {
 	brokenBodyJson := `{"original_url" : "https://www.google.com`
 	request := httptest.NewRequest(http.MethodPost, "localhost:8080/api/urls", strings.NewReader(brokenBodyJson))
 
-	ctx := context.WithValue(request.Context(), middleware.UserIDKey, int64(1))
+	ctx := context.WithValue(request.Context(), middleware.UserClaims, int64(1))
 	request = request.WithContext(ctx)
 
 	handler.Create(recorder, request, nil)
@@ -124,7 +124,7 @@ func Test_Create_ShortUrl_ServiceError(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, "localhost:8080/api/urls", strings.NewReader(bodyJson))
 
-	ctx := context.WithValue(request.Context(), middleware.UserIDKey, int64(1))
+	ctx := context.WithValue(request.Context(), middleware.UserClaims, int64(1))
 	request = request.WithContext(ctx)
 
 	handler.Create(recorder, request, nil)

@@ -23,7 +23,7 @@ func main() {
 		log.Println("Warning: JWT_SECRET env is not set, using default fallback key")
 	}
 
-	emailSender := helper.NewEmailSender("smtp.gmail.com", "587", "emailforhostuser@gmail.com", "fipdijyxekwufmlp")
+	emailService := helper.NewEmailService("smtp.gmail.com", "587", "emailforhostuser@gmail.com", "fipdijyxekwufmlp")
 	hasher := helper.NewBcryptHasher()
 	baseUrl := os.Getenv("APP_HOST")
 
@@ -40,8 +40,12 @@ func main() {
 	userHandler := handler.NewUserHandler(userService)
 
 	passwordResetRepo := repository.NewPasswordResetTokensRepository(database)
-	passwordResetService := service.NewPasswordResetTokensService(passwordResetRepo, userRepo, emailSender, hasher, baseUrl)
+	passwordResetService := service.NewPasswordResetTokensService(passwordResetRepo, userRepo, emailService, hasher, baseUrl)
 	passwordResethandler := handler.NewPasswordResetTokensHandler(passwordResetService)
+
+	verificationRepo := repository.NewVerificationTokenRepository(database)
+	verificationService := service.NewVerificationTokenService(verificationRepo, userRepo, emailService, baseUrl)
+	verificationHandler := handler.NewVerificationTokenHandler(verificationService)
 
 	router := httprouter.New()
 
@@ -49,12 +53,14 @@ func main() {
 
 	router.POST("/user/login", userHandler.Login)
 	router.POST("/user/register", userHandler.Register)
+	router.POST("/user/verify", verificationHandler.RequestVerification)
+	router.GET("/verify", verificationHandler.VerificationAccount)
 
 	router.POST("/forgot-password", passwordResethandler.ForgotPasswordHandler)
 	router.POST("/reset-password", passwordResethandler.ResetPasswordHandler)
 
-	router.POST("/api/urls", middleware.AuthMiddleware(JwtSecret)(shortUrlHandler.Create))
-	router.GET("/api/urls/:shortUrlId/analytics", middleware.AuthMiddleware(JwtSecret)(clickEventHandler.FindByShortUrlId))
+	router.POST("/api/urls", middleware.AuthMiddleware(JwtSecret)(middleware.CheckVerifiedUser(shortUrlHandler.Create)))
+	router.GET("/api/urls/:shortUrlId/analytics", middleware.AuthMiddleware(JwtSecret)(middleware.CheckVerifiedUser(clickEventHandler.FindByShortUrlId)))
 
 	logger := middleware.Logger(router)
 

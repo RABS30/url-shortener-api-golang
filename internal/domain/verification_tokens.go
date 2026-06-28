@@ -19,3 +19,8 @@ type VerificationTokenRepository interface {
 	FindByToken(ctx context.Context, token string) (*VerificationToken, error)
 	DeleteByUserId(ctx context.Context, userId int64) error
 }
+
+type VerificationTokenService interface {
+	SendVerificationMail(ctx context.Context, email string) error
+	VerificationAccount(ctx context.Context, token string) error
+}

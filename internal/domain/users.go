@@ -19,6 +19,7 @@ type UserRepository interface {
 	Update(ctx context.Context, user *User) (*User, error)
 	Delete(ctx context.Context, id int64) error
 	UpdatePassword(ctx context.Context, id int64, hashedPassword string) error
+	UpdateVerified(ctx context.Context, id int64, verify bool) error
 	FindById(ctx context.Context, id int64) (*User, error)
 	FindByEmail(ctx context.Context, email string) (*User, error)
 }
@@ -28,8 +29,9 @@ type AuthService interface {
 	Login(ctx context.Context, email string, password string) (string, error)
 }
 
-type EmailSender interface {
+type EmailService interface {
 	SendEmail(ctx context.Context, to string, subject string, body string) error
+	SendEmailWithHTML(ctx context.Context, to string, context any, template string) error
 }
 
 type PasswordHasher interface {

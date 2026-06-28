@@ -26,7 +26,6 @@ func (s *clickEventService) Create(ctx context.Context, clickEvent *domain.Click
 }
 
 func (s *clickEventService) FindByShortUrlId(ctx context.Context, shortUrlId int64, userId int64) ([]domain.ClickEvent, error) {
-	// Oper userID ke layer repository rabs
 	listEvent, err := s.repo.FindByShortUrlId(ctx, shortUrlId, userId)
 	if err != nil {
 		return nil, fmt.Errorf("something error when get list click event, %w", err)

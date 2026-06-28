@@ -13,10 +13,12 @@ import (
 
 type contextKey string
 
-const UserIDKey contextKey = "userID"
+const UserClaims contextKey = "userClaims"
 
 type Claims struct {
-	UserID int64 `json:"user_id"`
+	UserID     int64  `json:"user_id"`
+	Email      string `json:"email"`
+	IsVerified bool   `json:"is_verified"`
 	jwt.RegisteredClaims
 }
 
@@ -49,7 +51,7 @@ func AuthMiddleware(secretKey string) func(httprouter.Handle) httprouter.Handle 
 				return
 			}
 
-			ctx := context.WithValue(r.Context(), UserIDKey, claims.UserID)
+			ctx := context.WithValue(r.Context(), UserClaims, claims)
 			r = r.WithContext(ctx)
 
 			h(w, r, p)
@@ -58,14 +60,16 @@ func AuthMiddleware(secretKey string) func(httprouter.Handle) httprouter.Handle 
 }
 
 func GetUserIDFromContext(r *http.Request, key any) (int64, error) {
-	userIDContext := r.Context().Value(key)
-	if userIDContext == nil {
-		return 0, fmt.Errorf("id not found")
+	userContext, ok := r.Context().Value(key).(*Claims)
+	if !ok || userContext == nil {
+		return 0, fmt.Errorf("claims not found in context")
 	}
 
-	if userID, ok := userIDContext.(int64); ok {
-		return userID, nil
+	userId := userContext.UserID
+
+	if userId == 0 {
+		return 0, fmt.Errorf("id is zero or empty")
 	}
 
-	return 0, fmt.Errorf("invalid id")
+	return userId, nil
 }

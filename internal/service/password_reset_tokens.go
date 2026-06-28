@@ -11,20 +11,20 @@ import (
 )
 
 type passwordResetTokensService struct {
-	repo        domain.PasswordResetTokensRepository
-	users       domain.UserRepository
-	emailSender domain.EmailSender
-	hasher      domain.PasswordHasher
-	baseUrl     string
+	repo         domain.PasswordResetTokensRepository
+	users        domain.UserRepository
+	emailService domain.EmailService
+	hasher       domain.PasswordHasher
+	baseUrl      string
 }
 
-func NewPasswordResetTokensService(repo domain.PasswordResetTokensRepository, users domain.UserRepository, emailSender domain.EmailSender, hasher domain.PasswordHasher, baseUrl string) domain.PasswordResetTokensService {
+func NewPasswordResetTokensService(repo domain.PasswordResetTokensRepository, users domain.UserRepository, emailService domain.EmailService, hasher domain.PasswordHasher, baseUrl string) domain.PasswordResetTokensService {
 	return &passwordResetTokensService{
-		repo:        repo,
-		users:       users,
-		emailSender: emailSender,
-		hasher:      hasher,
-		baseUrl:     baseUrl,
+		repo:         repo,
+		users:        users,
+		emailService: emailService,
+		hasher:       hasher,
+		baseUrl:      baseUrl,
 	}
 }
 
@@ -53,12 +53,6 @@ func (s *passwordResetTokensService) RequestResetPassword(ctx context.Context, e
 		return err
 	}
 
-	// dataTemplate := struct {
-	// 	Email    string
-	// 	ResetURL string
-	// }{
-	// 	Email:    user.Email,
-	// }
 	resetURL := fmt.Sprintf("%s/reset-password?token=%s", s.baseUrl, token)
 
 	subject := "Permintaan Reset Password Akun Anda"
@@ -71,7 +65,7 @@ func (s *passwordResetTokensService) RequestResetPassword(ctx context.Context, e
 		<p><i>Link ini hanya berlaku selama 15 menit. Jika Anda tidak merasa melakukan permintaan ini, abaikan email ini.</i></p>
 	`, user.Email, resetURL)
 
-	err = s.emailSender.SendEmail(ctx, user.Email, subject, body)
+	err = s.emailService.SendEmail(ctx, user.Email, subject, body)
 	if err != nil {
 		return fmt.Errorf("failed to send email, %w", err)
 	}
