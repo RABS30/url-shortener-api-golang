@@ -20,13 +20,22 @@ type userResponse struct {
 	Email string `json:"email"`
 }
 
-type userHandler struct {
-	UserService domain.AuthService
+type CookieConfig struct {
+	Domain string
+	MaxAge int
+	Secure bool
+	Path   string
 }
 
-func NewUserHandler(UserService domain.AuthService) *userHandler {
+type userHandler struct {
+	UserService  domain.AuthService
+	CookieConfig CookieConfig
+}
+
+func NewUserHandler(userService domain.AuthService, cookieConfig *CookieConfig) *userHandler {
 	return &userHandler{
-		UserService: UserService,
+		UserService:  userService,
+		CookieConfig: *cookieConfig,
 	}
 }
 
@@ -116,11 +125,11 @@ func (h *userHandler) Login(w http.ResponseWriter, r *http.Request, p httprouter
 	cookie := &http.Cookie{
 		Name:     "token",
 		Value:    token,
-		Domain:   "localhost",
-		Path:     "/",
-		MaxAge:   3600 * 24,
+		Domain:   h.CookieConfig.Domain,
+		Path:     h.CookieConfig.Path,
+		MaxAge:   h.CookieConfig.MaxAge,
 		HttpOnly: true,
-		Secure:   false,
+		Secure:   h.CookieConfig.Secure,
 		SameSite: http.SameSiteLaxMode,
 	}
 

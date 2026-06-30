@@ -10,6 +10,7 @@ import (
 	"shorter-url/internal/middleware"
 	"shorter-url/internal/repository"
 	"shorter-url/internal/service"
+	"time"
 
 	"github.com/julienschmidt/httprouter"
 )
@@ -20,12 +21,26 @@ func main() {
 
 	JwtSecret := os.Getenv("JWT_SECRET")
 	if JwtSecret == "" {
-		log.Println("Warning: JWT_SECRET env is not set, using default fallback key")
+		log.Fatal("Warning: JWT_SECRET env is not set")
 	}
 
-	emailService := helper.NewEmailService("smtp.gmail.com", "587", "emailforhostuser@gmail.com", "fipdijyxekwufmlp")
+	emailService := helper.NewEmailService(os.Getenv("MAIL_HOST"), os.Getenv("MAIL_PORT"), os.Getenv("MAIL_USERNAME"), os.Getenv("MAIL_PASSWORD"))
+
 	hasher := helper.NewBcryptHasher()
+
 	baseUrl := os.Getenv("APP_HOST")
+
+	expireJWT := os.Getenv("JWT_EXPIRE_DURATION")
+	expireToken, err := time.ParseDuration(expireJWT)
+	if err != nil {
+		expireToken = 1 * time.Hour
+	}
+
+	cookieConfig := &handler.CookieConfig{
+		Domain: os.Getenv("APP_DOMAIN"),
+		MaxAge: int(expireToken.Seconds()),
+		Secure: os.Getenv("APP_ENV") == "production",
+	}
 
 	clickEventRepo := repository.NewClickEventsRepository(database)
 	clickEventService := service.NewClickEventService(clickEventRepo)
@@ -37,7 +52,7 @@ func main() {
 
 	userRepo := repository.NewUserRepository(database)
 	userService := service.NewUserService(userRepo, []byte(JwtSecret))
-	userHandler := handler.NewUserHandler(userService)
+	userHandler := handler.NewUserHandler(userService, cookieConfig)
 
 	passwordResetRepo := repository.NewPasswordResetTokensRepository(database)
 	passwordResetService := service.NewPasswordResetTokensService(passwordResetRepo, userRepo, emailService, hasher, baseUrl)
@@ -53,6 +68,7 @@ func main() {
 
 	router.POST("/user/login", middleware.GuestOnly(JwtSecret)(userHandler.Login))
 	router.POST("/user/register", middleware.GuestOnly(JwtSecret)(userHandler.Register))
+
 	router.POST("/user/verify", verificationHandler.RequestVerification)
 	router.GET("/verify", verificationHandler.VerificationAccount)
 
@@ -67,7 +83,7 @@ func main() {
 	log.Println("Server running on port :8080")
 
 	server := http.Server{
-		Addr:    ":8080",
+		Addr:    os.Getenv("APP_ADDR"),
 		Handler: logger,
 	}
 

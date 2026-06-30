@@ -1,587 +1,1030 @@
 {
-  "openapi": "3.1.1",
+  "openapi": "3.1.0",
   "info": {
     "title": "URL Shorter RESTful API",
-    "version": "1.0",
-    "description": "API for URL Shorter",
+    "version": "1.0.0",
+    "description": "Comprehensive API documentation for URL Shorter Service - A service to create, manage, and track shortened URLs",
     "contact": {
       "name": "RABS",
       "email": "rabs@gmail.com",
-      "url": "http://rabs.my.id"
+      "url": "https://rabs.my.id"
+    },
+    "license": {
+      "name": "MIT"
     }
   },
   "servers": [
     {
-      "url": "https://rabs.my.id/v1",
-      "description": "URL Shorter"
+      "url": "http://localhost:8080",
+      "description": "Local Development Server"
+    },
+    {
+      "url": "https://rabs.my.id",
+      "description": "Production Server"
     }
   ],
+  "components": {
+    "schemas": {
+      "ApiResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Response message"
+          },
+          "data": {
+            "type":[ "object", "null"],
+            "description": "Response data payload"
+            }
+        },
+        "required": ["message"]
+      },
+      "UserRegisterRequest": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "User email address (must be valid email format)",
+            "example": "user@example.com"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "description": "User password (minimum 6 characters, should contain uppercase, lowercase, and numbers)",
+            "example": "Password123"
+          }
+        },
+        "required": ["email", "password"]
+      },
+      "UserLoginRequest": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "User email address",
+            "example": "user@example.com"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "description": "User password",
+            "example": "Password123"
+          }
+        },
+        "required": ["email", "password"]
+      },
+      "UserResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unique user identifier",
+            "example": 1
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "User email address",
+            "example": "user@example.com"
+          }
+        },
+        "required": ["id", "email"]
+      },
+      "UserRegisterResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/UserResponse"
+              }
+            }
+          }
+        ]
+      },
+      "UserLoginResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "null",
+                "description": "Token is set as HTTP-only cookie"
+              }
+            }
+          }
+        ]
+      },
+      "VerificationEmailRequest": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "User email address to send verification email to",
+            "example": "user@example.com"
+          }
+        },
+        "required": ["email"]
+      },
+      "VerificationEmailResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "string",
+                "example": ""
+              }
+            }
+          }
+        ]
+      },
+      "ForgotPasswordRequest": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "User email address to send reset password link to",
+            "example": "user@example.com"
+          }
+        },
+        "required": ["email"]
+      },
+      "ResetPasswordRequest": {
+        "type": "object",
+        "properties": {
+          "password1": {
+            "type": "string",
+            "format": "password",
+            "description": "New password (minimum 6 characters, should contain uppercase, lowercase, and numbers)",
+            "example": "NewPassword123"
+          },
+          "password2": {
+            "type": "string",
+            "format": "password",
+            "description": "Password confirmation (must match password1)",
+            "example": "NewPassword123"
+          }
+        },
+        "required": ["password1", "password2"]
+      },
+      "CreateShortUrlRequest": {
+        "type": "object",
+        "properties": {
+          "original_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "The original URL to be shortened (must be valid URL format)",
+            "example": "https://www.example.com/very/long/url/path"
+          }
+        },
+        "required": ["original_url"]
+      },
+      "ShortUrlResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unique short URL identifier",
+            "example": 1
+          },
+          "short_code": {
+            "type": "string",
+            "description": "Generated short code for the URL",
+            "example": "abc123xyz"
+          },
+          "original_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "The original long URL",
+            "example": "https://www.example.com/very/long/url/path"
+          },
+          "expired_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Expiration date of the short URL (ISO 8601 format)",
+            "example": "2026-07-30T10:30:00Z"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation date of the short URL (ISO 8601 format)",
+            "example": "2026-06-30T10:30:00Z"
+          }
+        },
+        "required": ["id", "short_code", "original_url", "expired_at", "created_at"]
+      },
+      "CreateShortUrlResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/ShortUrlResponse"
+              }
+            }
+          }
+        ]
+      },
+      "ClickEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unique click event identifier",
+            "example": 1
+          },
+          "short_url_id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "ID of the short URL that was clicked",
+            "example": 1
+          },
+          "ip_address": {
+            "type": "string",
+            "description": "IP address of the requester",
+            "example": "192.168.1.1"
+          },
+          "user_agent": {
+            "type": "string",
+            "description": "User agent string from the request",
+            "example": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+          },
+          "referer": {
+            "type": "string",
+            "description": "Referrer of the request or 'Direct' if no referrer",
+            "example": "https://google.com"
+          },
+          "clicked_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp when the URL was clicked (ISO 8601 format)",
+            "example": "2026-06-30T10:35:00Z"
+          }
+        },
+        "required": ["id", "short_url_id", "ip_address", "user_agent", "referer", "clicked_at"]
+      },
+      "AnalyticsResponse": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/ClickEvent"
+        },
+        "example": [
+          {
+            "id": 1,
+            "short_url_id": 1,
+            "ip_address": "192.168.1.1",
+            "user_agent": "Mozilla/5.0",
+            "referer": "Direct",
+            "clicked_at": "2026-06-30T10:35:00Z"
+          }
+        ]
+      },
+      "AnalyticsResponseWrapper": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "$ref": "#/components/schemas/AnalyticsResponse"
+              }
+            }
+          }
+        ]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Error message"
+          }
+        },
+        "required": ["message"]
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT Token obtained from login endpoint, sent via Authorization header or cookie"
+      }
+    }
+  },
+  "security": [],
   "paths": {
-    "/auth/register": {
+    "/user/register": {
       "post": {
         "tags": ["Authentication"],
-        "summary": "Create New User",
-        "description": "Create new user using email and password",
+        "summary": "Register New User",
+        "description": "Create a new user account with email and password. User must be a guest (not logged in).",
+        "operationId": "registerUser",
         "requestBody": {
-            "$ref": "#/components/requestBodies/userCredentialsRequestBody"
-        },
-        "responses": {
-          "201": {
-            "description": "User created successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResponse"
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "data": {
-                          "$ref": "#/components/schemas/UserResponse"
-                        }
-                      }
-                    }
-                  ]
-                }   
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-                "application/json":{
-                    "schema":{
-                        "$ref": "#/components/schemas/ApiResponse"
-                    }
-                }
-            }
-          },
-          "409": {
-            "description": "Email already exists",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiResponse"
-                }   
-              }
-            }
-          }
-        }
-      }
-    },
-    "/auth/login": {
-        "post": {
-            "tags": ["Authentication"],
-            "summary": "User login to access API",
-             "description": "User login using email and password",
-             "requestBody": {
-                "$ref": "#/components/requestBodies/userCredentialsRequestBody"
-             },
-             "responses": {
-                "200": {
-                    "description": "Success Login",
-                    "content": {
-                        "application/json":{
-                            "schema":{
-                                "allOf": [
-                                    {
-                                        "$ref": "#/components/schemas/ApiResponse"
-                                    },
-                                    {
-                                        "type":"object",
-                                        "properties": {
-                                            "data": {
-                                                "$ref": "#/components/schemas/LoginResponse"
-                                            }
-                                        }
-                                    }
-                                ]
-                            }
-                        }
-                    }
-                },
-                "401": {
-                    "description": "Failed Login",
-                    "content": {
-                        "application/json":{
-                            "schema":{
-                                "$ref": "#/components/schemas/ApiResponse"
-                            }
-                        }
-                    }
-                }
-             }
-        }
-    },
-    "/user/me":{
-        "get":{
-            "tags": ["User"],
-            "description": "Get profile information of the currently authenticated user",
-            "summary": "Get user information",
-            "security": [
-                {
-                    "BearerAuth": []
-                }
-            ],
-            "responses": {
-              "200":{
-                "description": "Get all information about user",
-                "content": {
-                  "application/json":{
-                    "schema":{
-                      "allOf": [
-                        {
-                          "$ref": "#/components/schemas/ApiResponse"
-                        },
-                        {
-                          "type": "object",
-                          "properties": {
-                            "data": {
-                                  "$ref": "#/components/schemas/UserResponse"
-                              }
-                          }
-                        }
-                      ]
-                    }
-                  }
-                }
-              },
-              "401": {
-                "$ref": "#/components/responses/unauthorized"
-              }
-            }
-        }
-    },
-    "/urls": {
-      "get":{
-        "tags": ["URLs"],
-        "description": "Get all shortened urls",
-        "summary": "Get all urls",
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "Get all shortened urls",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResponse"
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "data": {
-                          "$ref": "#/components/schemas/ShortUrlList"
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/unauthorized"
-          }
-        }
-      },
-      "post": {
-        "tags": ["URLs"],
-        "description": "Create new short urls",
-        "summary": "new short urls created",
-        "security": [
-          {
-            "BearerAuth":[]
-          }
-        ],
-        "requestBody":{
-          "required": true,
-          "content": {
-            "application/json":{
-              "schema":{
-                "$ref": "#/components/schemas/ShortUrlRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201":{
-            "description": "Short URL created successfully",
-            "content": {
-              "application/json":{
-                "schema":{
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResponse"
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "data": {
-                          "$ref": "#/components/schemas/ShortUrlResponse"
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/unauthorized"
-          }
-        }
-      }
-    },
-    "/urls/{id}":{
-      "get": {
-        "tags": ["URLs"],
-        "security": [
-          {
-            "BearerAuth":[]
-          }
-        ],
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/ShortUrlId"
-          }
-        ],
-        "description": "Get specific URLs by id",
-        "summary": "Get specific URLs",
-        "responses": {
-          "200":{
-            "$ref": "#/components/responses/getSpecificURLs"
-          },
-          "401": {
-            "$ref": "#/components/responses/unauthorized"
-          },
-          "404": {
-            "$ref": "#/components/responses/notFound"
-          }
-        }
-      },
-      "delete": {
-        "summary": "Delete specific URLs",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/ShortUrlId"
-          }
-        ],
-        "tags": ["URLs"],
-        "description": "Delete shorter URLs",
-        "security": [
-          {
-            "BearerAuth":[]
-          }
-        ],
-        "responses": {
-          "200" :{
-            "description": "Delete URLs successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResponse"
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "data": {
-                          "type": "null"
-                        }
-                      }
-                    }
-                  ]
-
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/unauthorized"
-          },
-          "404": {
-            "$ref": "#/components/responses/notFound"
-          }
-        }   
-      },
-      "patch": {
-        "tags": ["URLs"],
-        "description": "Update specific URLs",
-        "summary": "Update Specific URLs",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/ShortUrlId"
-          }
-        ],
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ],
-        "requestBody":{
-          "description": "the needed data to update URLs",
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ShortUrlRequest"
+                "$ref": "#/components/schemas/UserRegisterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User registered successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserRegisterResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid email, password, or missing required fields",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "invalidPayload": {
+                    "value": {
+                      "message": "invalid request payload"
+                    }
+                  },
+                  "missingFields": {
+                    "value": {
+                      "message": "email and password are required"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict - email already registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "email already registered"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "register failed"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/user/login": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "User Login",
+        "description": "Authenticate user with email and password. Returns JWT token in HTTP-only cookie. User must be a guest (not logged in).",
+        "operationId": "loginUser",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserLoginRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "$ref": "#/components/responses/getSpecificURLs"
+            "description": "Login successful",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string",
+                  "example": "token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; Path=/; Domain=localhost; Max-Age=86400; HttpOnly; Secure; SameSite=Lax"
+                },
+                "description": "HTTP-only cookie containing JWT token"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserLoginResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid JSON or missing required fields",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "invalidJson": {
+                    "value": {
+                      "message": "invalid json format"
+                    }
+                  },
+                  "missingFields": {
+                    "value": {
+                      "message": "email and password are required"
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
-            "$ref": "#/components/responses/unauthorized"
-          },
-          "404": {
-            "$ref": "#/components/responses/notFound"
+            "description": "Unauthorized - invalid email or password",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "invalid email or password"
+                }
+              }
+            }
           }
         }
       }
     },
-    "/r/{short_code}":{
+    "/user/verify": {
+      "post": {
+        "tags": ["Email Verification"],
+        "summary": "Request Account Verification Email",
+        "description": "Send verification email to the provided email address. User must not be already verified.",
+        "operationId": "requestVerification",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerificationEmailRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Verification email sent successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerificationEmailResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid request body or missing email",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "invalidBody": {
+                    "value": {
+                      "message": "invalid request body"
+                    }
+                  },
+                  "missingEmail": {
+                    "value": {
+                      "message": "email is required"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict - user is already verified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "user is verified"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - failed to send verification email",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "failed to send verification email"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/verify": {
       "get": {
-        "tags": ["URLs"],
-        "summary": "Access real URLs",
-        "description": "Access real URLs from shortened URLs",
+        "tags": ["Email Verification"],
+        "summary": "Verify Account with Token",
+        "description": "Verify user account using the verification token sent via email. Token is passed as query parameter.",
+        "operationId": "verifyAccount",
         "parameters": [
           {
-            "name": "short_code",
-            "in": "path",
+            "name": "token",
+            "in": "query",
+            "description": "Verification token from email",
             "required": true,
             "schema": {
-              "type":"string"
-            }
+              "type": "string"
+            },
+            "example": "abc123def456ghi789"
           }
         ],
         "responses": {
-          "301": {
-            "description": "Permanent redirect",
-            "headers": {
-              "Location":{
-                "description": "Original URLs destination",
+          "200": {
+            "description": "Account verified successfully",
+            "content": {
+              "application/json": {
                 "schema": {
-                  "type": "string",
-                  "format": "uri"
+                  "$ref": "#/components/schemas/ApiResponse"
                 }
               }
             }
           },
+          "400": {
+            "description": "Bad request - token not found, expired, or user already verified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "noToken": {
+                    "value": {
+                      "message": "token not found"
+                    }
+                  },
+                  "expiredToken": {
+                    "value": {
+                      "message": "token has expired"
+                    }
+                  },
+                  "alreadyVerified": {
+                    "value": {
+                      "message": "user is already verified"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - failed to verify account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "failed to verified account"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/forgot-password": {
+      "post": {
+        "tags": ["Password Reset"],
+        "summary": "Request Password Reset",
+        "description": "Request a password reset link to be sent to the provided email address.",
+        "operationId": "forgotPassword",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password reset email sent successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid request payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "invalid request payload"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - unable to process request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "unable to process request"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reset-password": {
+      "post": {
+        "tags": ["Password Reset"],
+        "summary": "Reset Password with Token",
+        "description": "Reset user password using the reset token sent via email. Token is passed as query parameter. Both passwords must match.",
+        "operationId": "resetPassword",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "description": "Password reset token from email",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "abc123def456ghi789"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password reset successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - token not found, invalid payload, or passwords don't match",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "noToken": {
+                    "value": {
+                      "message": "token is required"
+                    }
+                  },
+                  "invalidPayload": {
+                    "value": {
+                      "message": "invalid request payload"
+                    }
+                  },
+                  "passwordMismatch": {
+                    "value": {
+                      "message": "password1 and password2 do not match"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - unable to process request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "unable to process request"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/r/{shortCode}": {
+      "get": {
+        "tags": ["Short URL Redirect"],
+        "summary": "Access Short URL",
+        "description": "Redirect to original URL using short code. Automatically logs click event analytics (IP, user agent, referrer). This endpoint returns HTTP 302 Found with Location header.",
+        "operationId": "accessShortUrl",
+        "parameters": [
+          {
+            "name": "shortCode",
+            "in": "path",
+            "description": "The short code of the URL",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "abc123xyz"
+          }
+        ],
+        "responses": {
           "302": {
-            "description": "Temporary redirect",
+            "description": "Redirect to original URL",
             "headers": {
               "Location": {
-                "description": "Original URLs destination",
                 "schema": {
                   "type": "string",
                   "format": "uri"
+                },
+                "description": "The original URL to redirect to"
+              }
+            }
+          },
+          "404": {
+            "description": "Not found - short code does not exist or has expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "short code not found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/urls": {
+      "post": {
+        "tags": ["Short URL Management"],
+        "summary": "Create Short URL",
+        "description": "Create a new shortened URL. Requires authentication and verified email. User must be logged in and email verified.",
+        "operationId": "createShortUrl",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateShortUrlRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Short URL created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateShortUrlResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid request payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "invalid request payload"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - missing or invalid authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - user email not verified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "user email not verified"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - failed to create short code",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "failed to create short code"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/urls/{shortUrlId}/analytics": {
+      "get": {
+        "tags": ["Analytics"],
+        "summary": "Get URL Click Analytics",
+        "description": "Retrieve click analytics for a specific short URL. Returns list of all click events with metadata (IP, user agent, referrer, timestamp). Only the URL owner can view analytics. Requires authentication and verified email.",
+        "operationId": "getAnalytics",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "shortUrlId",
+            "in": "path",
+            "description": "The ID of the short URL",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Analytics retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsResponseWrapper"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid short URL ID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "invalid short url id"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - missing or invalid authentication token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "unauthorized"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - user email not verified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "user email not verified"
                 }
               }
             }
           },
           "404": {
-            "$ref": "#/components/responses/notFound"
-          }
-        }
-
-      }
-    }
-  },
-  "components": {
-    "responses": {
-      "unauthorized": {
-        "description": "Unauthorized",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/ApiResponse"
-            }
-          }
-        }
-      },
-      "notFound": {
-        "description": "Content Not Found",
-        "content": {
-          "application/json": {
-            "schema": {
-              "$ref": "#/components/schemas/ApiResponse"
-            }
-          }
-        }
-      },
-      "getSpecificURLs": {
-        "description": "Get specific URLs",
-        "content": {
-              "application/json":{
+            "description": "Not found - short URL not found or user doesn't own this URL",
+            "content": {
+              "application/json": {
                 "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiResponse"
-                    },
-                    {
-                      "type":"object",
-                      "properties": {
-                        "data": {
-                          "$ref": "#/components/schemas/ShortUrlResponse"
-                        }
-                      }
-                    }
-                  ]                  
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "short url data not found"
                 }
               }
             }
-      }
-    },
-    "parameters": {
-      "ShortUrlId": {
-        "name": "id",
-        "in": "path",
-        "description": "Short URL identifier",
-        "schema": {
-          "type":"integer",
-          "format": "int64"
-        },
-        "required": true
-      }
-    },
-    "requestBodies": {
-        "userCredentialsRequestBody":{
-            "required": true,
-            "content": {
-                "application/json": {
-                    "schema" :{
-                        "$ref": "#/components/schemas/UserCredentialsRequest"
-                    }
-                }
-            }
-        }
-    },
-    "schemas": {
-      "UserCredentialsRequest": {
-        "type": "object",
-        "properties": {
-          "email": {
-            "type": "string",
-            "format": "email",
-            "example": "admin@gmail.com"
-          },
-          "password": {
-            "type": "string",
-            "minLength": 8,
-            "example": "admin123"
-          }
-        },
-        "required": ["email", "password"]
-      },
-      "UserResponse":{
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "integer",
-            "format": "int64",
-            "example": 1
-          },
-          "email": {
-            "type": "string",
-            "example": "admin@gmail.com"
-          },
-          "is_verified": {
-            "type": "boolean",
-            "example": true
-          }
-        },
-        "required": ["id", "email", "is_verified"]
-      },
-      "ApiResponse":{
-        "type": "object",
-        "properties": {
-          "message": {
-            "type": "string",
-            "example": "Message because you do something"
-          }
-        },
-        "required": ["message"]
-      },
-      "LoginResponse":{
-        "type":"object",
-        "properties": {
-            "access_token": {
-                "type": "string",
-                "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-            },
-            "user": {
-                "$ref": "#/components/schemas/UserResponse"
-            }
-        },
-        "required": ["access_token", "user"]
-      },
-      "ShortUrlResponse":{
-        "type": "object",
-        "properties": {
-          "id": {
-            "type":"integer"
-          },
-          "short_code": {
-            "type": "string"
-          },
-          "original_url": {
-            "type":"string",
-            "format": "uri"
-          },
-          "expired_at": {
-            "type":"string",
-            "format": "date-time",
-            "example": "2026-12-31T23:59:59Z"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "example": "2026-12-31T23:59:59Z"
-          }
-        },
-        "required": ["id", "short_code", "original_url"]
-      },
-      "ShortUrlList":{
-        "type":"object",
-        "properties": {
-          "urls":{
-            "type":"array",
-            "items": {
-              "$ref": "#/components/schemas/ShortUrlResponse"
-            }
           }
         }
-      },
-      "ShortUrlRequest": {
-        "type": "object",
-        "properties": {
-          "original_url": {
-            "type": "string",
-            "format": "uri",
-            "example": "https://example.com"
-          }
-        },
-        "required": ["original_url"]
       }
-    },
-    "securitySchemes": {
-        "BearerAuth":{
-            "type": "http",
-            "scheme": "bearer",
-            "bearerFormat": "JWT"
-        }
     }
-  }
+  },
+  "tags": [
+    {
+      "name": "Authentication",
+      "description": "User registration and login endpoints"
+    },
+    {
+      "name": "Email Verification",
+      "description": "Email account verification endpoints"
+    },
+    {
+      "name": "Password Reset",
+      "description": "Password reset flow endpoints"
+    },
+    {
+      "name": "Short URL Redirect",
+      "description": "Public redirect endpoint for short URLs"
+    },
+    {
+      "name": "Short URL Management",
+      "description": "Create and manage shortened URLs"
+    },
+    {
+      "name": "Analytics",
+      "description": "View click analytics for shortened URLs"
+    }
+  ]
 }
