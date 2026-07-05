@@ -21,25 +21,25 @@ func NewClickEventHandler(service domain.ClickEventService) *clickEventHandler {
 }
 
 func (h *clickEventHandler) FindByShortUrlId(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	userId, err := middleware.GetUserIDFromContext(r, middleware.UserClaims)
+	ctx := r.Context()
+
+	userId, err := middleware.GetUserIDFromContext(ctx)
 	if err != nil {
 		helper.BadResponse(w, http.StatusUnauthorized, "unauthorized")
 
-		if wrapper, ok := w.(*middleware.ResponseWriterWrapper); ok {
-			wrapper.WriteError(err.Error())
+		if wrapper, ok := w.(*middleware.LogResponseWriter); ok {
+			wrapper.WriteError(err)
 		}
 		return
 	}
-
-	ctx := r.Context()
 
 	idString := p.ByName("shortUrlId")
 	shortUrlId, err := strconv.ParseInt(idString, 10, 64)
 	if err != nil {
 		helper.BadResponse(w, http.StatusBadRequest, "invalid short url id")
 
-		if wrapper, ok := w.(*middleware.ResponseWriterWrapper); ok {
-			wrapper.WriteError(err.Error())
+		if wrapper, ok := w.(*middleware.LogResponseWriter); ok {
+			wrapper.WriteError(err)
 		}
 		return
 	}
@@ -48,10 +48,9 @@ func (h *clickEventHandler) FindByShortUrlId(w http.ResponseWriter, r *http.Requ
 	if err != nil {
 		helper.BadResponse(w, http.StatusNotFound, "short url data not found")
 
-		if wrapper, ok := w.(*middleware.ResponseWriterWrapper); ok {
-			wrapper.WriteError(err.Error())
+		if wrapper, ok := w.(*middleware.LogResponseWriter); ok {
+			wrapper.WriteError(err)
 		}
-
 		return
 	}
 

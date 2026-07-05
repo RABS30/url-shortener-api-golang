@@ -41,17 +41,17 @@ func (s *smtpEmailService) SendEmail(ctx context.Context, to, subject, body stri
 	return smtp.SendMail(addrs, s.auth, s.from, []string{to}, message)
 }
 
-func (s *smtpEmailService) SendEmailWithHTML(ctx context.Context, to string, context any, templateName string) error {
-	from := "From: \"Shorter URL\" <" + s.from + ">\n"
-	clientEmail := "To: " + to + "\n"
-	date := "Date: " + time.Now().Format(time.RFC1123Z) + "\n"
-	subject := "Subject: Verification your account\n"
-	mime := "MIME-version: 1.0;\n"
-	content_type := "Content-Type: text/html; charset=\"UTF-8\";\n\n"
+func (s *smtpEmailService) SendEmailWithHTML(ctx context.Context, to string, context any, subjectText string, templateName string) error {
+	from := "From: \"Shorter URL\" <" + s.from + ">\r\n"
+	clientEmail := "To: " + to + "\r\n"
+	date := "Date: " + time.Now().Format(time.RFC1123Z) + "\r\n"
+	subject := "Subject: " + subjectText + "\r\n"
+	mime := "MIME-version: 1.0;\r\n"
+	content_type := "Content-Type: text/html; charset=\"UTF-8\";\r\n\r\n"
 
 	header := from + clientEmail + date + subject + mime + content_type
 
-	template, err := template.ParseFS(templates.EmailTemplatesFS, "mail/"+templateName)
+	template, err := template.ParseFS(templates.EmailTemplatesFS, "mail/"+templateName+".html")
 	if err != nil {
 		return err
 	}

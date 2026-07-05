@@ -24,14 +24,16 @@ type UserRepository interface {
 	FindByEmail(ctx context.Context, email string) (*User, error)
 }
 
-type AuthService interface {
+type UserService interface {
 	Register(ctx context.Context, email string, password string) (*User, error)
 	Login(ctx context.Context, email string, password string) (string, error)
+	ChangePassword(ctx context.Context, email string, oldPassword string, newPassword string) error
+	ResetPassword(ctx context.Context, newPassword string, resetToken string) error
 }
 
 type EmailService interface {
 	SendEmail(ctx context.Context, to string, subject string, body string) error
-	SendEmailWithHTML(ctx context.Context, to string, context any, template string) error
+	SendEmailWithHTML(ctx context.Context, to string, context any, subjectText string, templateName string) error
 }
 
 type PasswordHasher interface {

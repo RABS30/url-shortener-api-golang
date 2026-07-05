@@ -27,3 +27,13 @@ func (m *MockAuthService) Login(ctx context.Context, email, password string) (st
 
 	return args.String(0), args.Error(1)
 }
+
+func (m *MockAuthService) ChangePassword(ctx context.Context, email, oldPassword, newPassword string) error {
+	args := m.Called(ctx, email, oldPassword, newPassword)
+	return args.Error(0)
+}
+
+func (m *MockAuthService) ResetPassword(ctx context.Context, newPassword, resetToken string) error {
+	args := m.Called(ctx, newPassword, resetToken)
+	return args.Error(0)
+}

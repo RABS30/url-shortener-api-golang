@@ -28,14 +28,16 @@ type CookieConfig struct {
 }
 
 type userHandler struct {
-	UserService  domain.AuthService
-	CookieConfig CookieConfig
+	UserService     domain.UserService
+	UserOtpsService domain.UserOtpsService
+	CookieConfig    CookieConfig
 }
 
-func NewUserHandler(userService domain.AuthService, cookieConfig *CookieConfig) *userHandler {
+func NewUserHandler(userService domain.UserService, userOtps domain.UserOtpsService, cookieConfig *CookieConfig) *userHandler {
 	return &userHandler{
-		UserService:  userService,
-		CookieConfig: *cookieConfig,
+		UserService:     userService,
+		UserOtpsService: userOtps,
+		CookieConfig:    *cookieConfig,
 	}
 }
 
@@ -48,8 +50,8 @@ func (h *userHandler) Register(w http.ResponseWriter, r *http.Request, p httprou
 	if err != nil {
 		helper.BadResponse(w, http.StatusBadRequest, "invalid request payload")
 
-		if wrapper, ok := w.(*middleware.ResponseWriterWrapper); ok {
-			wrapper.WriteError(err.Error())
+		if wrapper, ok := w.(*middleware.LogResponseWriter); ok {
+			wrapper.WriteError(err)
 		}
 		return
 	}
@@ -57,8 +59,8 @@ func (h *userHandler) Register(w http.ResponseWriter, r *http.Request, p httprou
 	if req.Email == "" || req.Password == "" {
 		helper.BadResponse(w, http.StatusBadRequest, "email and password are required")
 
-		if wrapper, ok := w.(*middleware.ResponseWriterWrapper); ok {
-			wrapper.WriteError("email and password are required")
+		if wrapper, ok := w.(*middleware.LogResponseWriter); ok {
+			wrapper.WriteError(err)
 		}
 		return
 	}
@@ -72,8 +74,8 @@ func (h *userHandler) Register(w http.ResponseWriter, r *http.Request, p httprou
 			helper.BadResponse(w, http.StatusInternalServerError, "register failed")
 		}
 
-		if wrapper, ok := w.(*middleware.ResponseWriterWrapper); ok {
-			wrapper.WriteError(err.Error())
+		if wrapper, ok := w.(*middleware.LogResponseWriter); ok {
+			wrapper.WriteError(err)
 		}
 		return
 	}
@@ -93,10 +95,10 @@ func (h *userHandler) Login(w http.ResponseWriter, r *http.Request, p httprouter
 	request.DisallowUnknownFields()
 	err := request.Decode(&req)
 	if err != nil {
-		helper.BadResponse(w, http.StatusBadRequest, "invalid json format")
+		helper.BadResponse(w, http.StatusBadRequest, "invalid request payload")
 
-		if wrapper, ok := w.(*middleware.ResponseWriterWrapper); ok {
-			wrapper.WriteError(err.Error())
+		if wrapper, ok := w.(*middleware.LogResponseWriter); ok {
+			wrapper.WriteError(err)
 		}
 		return
 	}
@@ -104,8 +106,8 @@ func (h *userHandler) Login(w http.ResponseWriter, r *http.Request, p httprouter
 	if req.Email == "" || req.Password == "" {
 		helper.BadResponse(w, http.StatusBadRequest, "email and password are required")
 
-		if wrapper, ok := w.(*middleware.ResponseWriterWrapper); ok {
-			wrapper.WriteError("email and password are required")
+		if wrapper, ok := w.(*middleware.LogResponseWriter); ok {
+			wrapper.WriteError(err)
 		}
 		return
 	}
@@ -116,8 +118,8 @@ func (h *userHandler) Login(w http.ResponseWriter, r *http.Request, p httprouter
 	if err != nil {
 		helper.BadResponse(w, http.StatusUnauthorized, "invalid email or password")
 
-		if wrapper, ok := w.(*middleware.ResponseWriterWrapper); ok {
-			wrapper.WriteError(err.Error())
+		if wrapper, ok := w.(*middleware.LogResponseWriter); ok {
+			wrapper.WriteError(err)
 		}
 		return
 	}
@@ -136,4 +138,47 @@ func (h *userHandler) Login(w http.ResponseWriter, r *http.Request, p httprouter
 	http.SetCookie(w, cookie)
 
 	helper.GoodResponse(w, http.StatusOK, "login successfully", nil)
+}
+
+func (h *userHandler) ResetPassword(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	ctx := r.Context()
+
+	type RequestBody struct {
+		Email      string `json:"email"`
+		ResetToken string `json:"reset_token"`
+		Password1  string `json:"password_1"`
+		Password2  string `json:"password_2"`
+	}
+	var userRequest = &RequestBody{}
+
+	request := json.NewDecoder(r.Body)
+	request.DisallowUnknownFields()
+	err := request.Decode(&userRequest)
+	if err != nil {
+		helper.BadResponse(w, http.StatusBadRequest, "invalid request payload")
+		return
+	}
+
+	if userRequest.Email == "" || userRequest.ResetToken == "" || userRequest.Password1 == "" || userRequest.Password2 == "" {
+		helper.BadResponse(w, http.StatusBadRequest, "all fields are required")
+		return
+	}
+
+	if userRequest.Password1 != userRequest.Password2 {
+		helper.BadResponse(w, http.StatusBadRequest, "password1 and password2 do not macth")
+		return
+	}
+
+	err = h.UserService.ResetPassword(ctx, userRequest.Password1, userRequest.ResetToken)
+	if err != nil {
+		helper.BadResponse(w, http.StatusInternalServerError, "failed reset password")
+
+		return
+	}
+
+	helper.GoodResponse(w, http.StatusOK, "success", nil)
+}
+
+func (h *userHandler) ChangePassword(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+
 }
