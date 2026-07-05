@@ -100,7 +100,7 @@ func (r *userRepository) FindById(ctx context.Context, id int64) (*domain.User, 
 	err := r.db.QueryRow(ctx, query, id).Scan(&user.Id, &user.Email, &user.PasswordHash, &user.IsVerified, &user.Status, &user.CreatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil
+			return nil, domain.ErrNotFound
 		}
 		return nil, fmt.Errorf("query user by id: %w", err)
 	}
@@ -114,7 +114,7 @@ func (r *userRepository) FindByEmail(ctx context.Context, email string) (*domain
 	err := r.db.QueryRow(ctx, query, email).Scan(&user.Id, &user.Email, &user.PasswordHash, &user.IsVerified, &user.Status, &user.CreatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil
+			return nil, domain.ErrNotFound
 		}
 		return nil, fmt.Errorf("query user by email: %w", err)
 	}

@@ -34,11 +34,15 @@ func Test_Create_ShortUrl_Pass(t *testing.T) {
 		CreatedAt:   time.Now(),
 	}, nil)
 
+	claims := &middleware.UserPrimaryClaims{
+		UserID: 1,
+		Email:  "test@gmail.com",
+	}
 	bodyJson := `{"original_url" : "https://www.google.com"}`
+
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, "localhost:8080/api/urls", strings.NewReader(bodyJson))
-
-	ctx := context.WithValue(request.Context(), middleware.UserClaims, &middleware.Claims{UserID: 1})
+	ctx := context.WithValue(request.Context(), middleware.UserClaimsKey, claims)
 	request = request.WithContext(ctx)
 
 	handler.Create(recorder, request, nil)
@@ -71,7 +75,7 @@ func Test_Create_ShortUrl_Pass(t *testing.T) {
 	mockService.AssertExpectations(t)
 }
 
-func Test_Creat_ShortUrl_Unauthorized(t *testing.T) {
+func Test_Create_ShortUrl_Unauthorized(t *testing.T) {
 	mockService := new(service.MockShortUrlService)
 	mockClickService := new(service.MockClickEventService)
 	handler := NewShortUrlHandler(mockService, mockClickService)
@@ -96,11 +100,16 @@ func Test_Create_ShortUrl_InvalidJSON(t *testing.T) {
 	mockClickService := new(service.MockClickEventService)
 	handler := NewShortUrlHandler(mockService, mockClickService)
 
+	claims := &middleware.UserPrimaryClaims{
+		UserID: 1,
+		Email:  "test@gmail.com",
+	}
 	recorder := httptest.NewRecorder()
+
 	brokenBodyJson := `{"original_url" : "https://www.google.com`
 	request := httptest.NewRequest(http.MethodPost, "localhost:8080/api/urls", strings.NewReader(brokenBodyJson))
 
-	ctx := context.WithValue(request.Context(), middleware.UserClaims, &middleware.Claims{UserID: 1})
+	ctx := context.WithValue(request.Context(), middleware.UserClaimsKey, claims)
 	request = request.WithContext(ctx)
 
 	handler.Create(recorder, request, nil)
@@ -120,11 +129,16 @@ func Test_Create_ShortUrl_ServiceError(t *testing.T) {
 	mockService.On("CreateShortUrl", mock.Anything, int64(1), "https://www.google.com", mock.Anything).
 		Return(nil, errors.New("database connection lost"))
 
+	claims := &middleware.UserPrimaryClaims{
+		UserID: 1,
+		Email:  "test@gmail.com",
+	}
 	bodyJson := `{"original_url" : "https://www.google.com"}`
+
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, "localhost:8080/api/urls", strings.NewReader(bodyJson))
 
-	ctx := context.WithValue(request.Context(), middleware.UserClaims, &middleware.Claims{UserID: 1})
+	ctx := context.WithValue(request.Context(), middleware.UserClaimsKey, claims)
 	request = request.WithContext(ctx)
 
 	handler.Create(recorder, request, nil)

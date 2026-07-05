@@ -19,11 +19,12 @@ func Test_FindByShortUrlId_Pass(t *testing.T) {
 	mockService := new(service.MockClickEventService)
 	h := NewClickEventHandler(mockService)
 
-	claims := &middleware.Claims{
+	claims := &middleware.UserPrimaryClaims{
 		UserID: 1,
+		Email:  "test@gmail.com",
 	}
 	req := httptest.NewRequest(http.MethodGet, "/click-events/42", nil)
-	ctx := context.WithValue(req.Context(), middleware.UserClaims, claims)
+	ctx := context.WithValue(req.Context(), middleware.UserClaimsKey, claims)
 	req = req.WithContext(ctx)
 
 	rec := httptest.NewRecorder()
@@ -62,11 +63,12 @@ func Test_FindByShortUrlId_Fail_InvalidShortUrlId(t *testing.T) {
 	mockService := new(service.MockClickEventService)
 	h := NewClickEventHandler(mockService)
 
-	claims := &middleware.Claims{
+	claims := &middleware.UserPrimaryClaims{
 		UserID: 1,
+		Email:  "test@gmail.com",
 	}
-	req := httptest.NewRequest(http.MethodGet, "/click-events/invalid", nil)
-	ctx := context.WithValue(req.Context(), middleware.UserClaims, claims)
+	req := httptest.NewRequest(http.MethodGet, "/click-events/42", nil)
+	ctx := context.WithValue(req.Context(), middleware.UserClaimsKey, claims)
 	req = req.WithContext(ctx)
 
 	rec := httptest.NewRecorder()
@@ -83,11 +85,12 @@ func Test_FindByShortUrlId_Fail_NotFound(t *testing.T) {
 	mockService := new(service.MockClickEventService)
 	h := NewClickEventHandler(mockService)
 
-	claims := &middleware.Claims{
+	claims := &middleware.UserPrimaryClaims{
 		UserID: 1,
+		Email:  "test@gmail.com",
 	}
 	req := httptest.NewRequest(http.MethodGet, "/click-events/42", nil)
-	ctx := context.WithValue(req.Context(), middleware.UserClaims, claims)
+	ctx := context.WithValue(req.Context(), middleware.UserClaimsKey, claims)
 	req = req.WithContext(ctx)
 
 	rec := httptest.NewRecorder()
