@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"errors"
 	"net/http"
 	"shorter-url/internal/helper"
 
@@ -13,8 +14,8 @@ func VerifiedUserOnly(next httprouter.Handle) httprouter.Handle {
 		if !ok || !claims.IsVerified {
 			helper.BadResponse(w, http.StatusForbidden, "account not verified")
 
-			if wrapper, ok := w.(*ResponseWriterWrapper); ok {
-				wrapper.WriteError("account not verified")
+			if wrapper, ok := w.(*LogResponseWriter); ok {
+				wrapper.WriteError(errors.New("account not verified"))
 			}
 			return
 		}

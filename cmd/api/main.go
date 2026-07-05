@@ -28,8 +28,6 @@ func main() {
 
 	hasher := helper.NewBcryptHasher()
 
-	baseUrl := os.Getenv("APP_HOST")
-
 	expireJWT := os.Getenv("JWT_EXPIRE_DURATION")
 	expireToken, err := time.ParseDuration(expireJWT)
 	if err != nil {
@@ -40,7 +38,10 @@ func main() {
 		Domain: os.Getenv("APP_DOMAIN"),
 		MaxAge: int(expireToken.Seconds()),
 		Secure: os.Getenv("APP_ENV") == "production",
+		Path:   "/",
 	}
+
+	middleware.InitLogger()
 
 	clickEventRepo := repository.NewClickEventsRepository(database)
 	clickEventService := service.NewClickEventService(clickEventRepo)
@@ -51,16 +52,13 @@ func main() {
 	shortUrlHandler := handler.NewShortUrlHandler(shortUrlService, clickEventService)
 
 	userRepo := repository.NewUserRepository(database)
-	userService := service.NewUserService(userRepo, []byte(JwtSecret))
-	userHandler := handler.NewUserHandler(userService, cookieConfig)
 
-	passwordResetRepo := repository.NewPasswordResetTokensRepository(database)
-	passwordResetService := service.NewPasswordResetTokensService(passwordResetRepo, userRepo, emailService, hasher, baseUrl)
-	passwordResethandler := handler.NewPasswordResetTokensHandler(passwordResetService)
+	userOtpsRepo := repository.NewUserOtpsRepository(database)
+	userOtpsService := service.NewUserOtpsService(userOtpsRepo, emailService, userRepo, []byte(JwtSecret))
+	userOtpsHandler := handler.NewUserOtpsHandler(userOtpsService)
 
-	verificationRepo := repository.NewVerificationTokenRepository(database)
-	verificationService := service.NewVerificationTokenService(verificationRepo, userRepo, emailService, baseUrl)
-	verificationHandler := handler.NewVerificationTokenHandler(verificationService)
+	userService := service.NewUserService(userRepo, []byte(JwtSecret), hasher)
+	userHandler := handler.NewUserHandler(userService, userOtpsService, cookieConfig)
 
 	router := httprouter.New()
 
@@ -68,23 +66,23 @@ func main() {
 
 	router.POST("/user/login", middleware.GuestOnly(JwtSecret)(userHandler.Login))
 	router.POST("/user/register", middleware.GuestOnly(JwtSecret)(userHandler.Register))
+	router.POST("/user/reset-password", userHandler.ResetPassword)
+	router.POST("/user/change-password", userHandler.ChangePassword)
 
-	router.POST("/user/verify", verificationHandler.RequestVerification)
-	router.GET("/verify", verificationHandler.VerificationAccount)
-
-	router.POST("/forgot-password", passwordResethandler.ForgotPasswordHandler)
-	router.POST("/reset-password", passwordResethandler.ResetPasswordHandler)
+	router.POST("/send-otp", userOtpsHandler.RequestOTP)
+	router.POST("/verify-otp", userOtpsHandler.VerifyOTP)
 
 	router.POST("/api/urls", middleware.AuthMiddleware(JwtSecret)(middleware.VerifiedUserOnly(shortUrlHandler.Create)))
 	router.GET("/api/urls/:shortUrlId/analytics", middleware.AuthMiddleware(JwtSecret)(middleware.VerifiedUserOnly(clickEventHandler.FindByShortUrlId)))
 
 	logger := middleware.Logger(router)
+	requestID := middleware.RequestID(logger)
 
 	log.Println("Server running on port :8080")
 
 	server := http.Server{
 		Addr:    os.Getenv("APP_ADDR"),
-		Handler: logger,
+		Handler: requestID,
 	}
 
 	log.Fatal(server.ListenAndServe())

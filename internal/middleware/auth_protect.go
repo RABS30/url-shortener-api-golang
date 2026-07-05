@@ -34,8 +34,8 @@ func AuthMiddleware(secretKey string) func(httprouter.Handle) httprouter.Handle 
 			if err != nil {
 				helper.BadResponse(w, http.StatusUnauthorized, "unauthorized")
 
-				if wrapper, ok := w.(*ResponseWriterWrapper); ok {
-					wrapper.WriteError(err.Error())
+				if wrapper, ok := w.(*LogResponseWriter); ok {
+					wrapper.WriteError(fmt.Errorf("auth middleware: %s", err.Error()))
 				}
 				return
 			}
@@ -51,8 +51,8 @@ func AuthMiddleware(secretKey string) func(httprouter.Handle) httprouter.Handle 
 			if err != nil || !token.Valid {
 				helper.BadResponse(w, http.StatusUnauthorized, "invalid token or expired")
 
-				if wrapper, ok := w.(*ResponseWriterWrapper); ok {
-					wrapper.WriteError(err.Error())
+				if wrapper, ok := w.(*LogResponseWriter); ok {
+					wrapper.WriteError(err)
 				}
 				return
 			}
@@ -63,19 +63,4 @@ func AuthMiddleware(secretKey string) func(httprouter.Handle) httprouter.Handle 
 			h(w, r, p)
 		}
 	}
-}
-
-func GetUserIDFromContext(r *http.Request, key any) (int64, error) {
-	userContext, ok := r.Context().Value(key).(*Claims)
-	if !ok || userContext == nil {
-		return 0, fmt.Errorf("user data not found")
-	}
-
-	userId := userContext.UserID
-
-	if userId == 0 {
-		return 0, fmt.Errorf("user id not found")
-	}
-
-	return userId, nil
 }
