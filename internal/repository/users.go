@@ -120,3 +120,21 @@ func (r *userRepository) FindByEmail(ctx context.Context, email string) (*domain
 	}
 	return user, nil
 }
+
+func (r *userRepository) Upsert(ctx context.Context, user *domain.User) (*domain.User, error) {
+	query := `INSERT INTO users (email, password_hash) VALUES ($1, $2) ON CONFLICT (email)  DO UPDATE SET email = EXCLUDED.email RETURNING id, email, password_hash, is_verified, status, created_at`
+
+	err := r.db.QueryRow(ctx, query, user.Email, user.PasswordHash).Scan(
+		&user.Id,
+		&user.Email,
+		&user.PasswordHash,
+		&user.IsVerified,
+		&user.Status,
+		&user.CreatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("upsert user: %w", err)
+	}
+
+	return user, nil
+}

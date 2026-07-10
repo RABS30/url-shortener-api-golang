@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"shorter-url/internal/domain"
 	"shorter-url/internal/helper"
@@ -68,7 +69,7 @@ func (h *userHandler) Register(w http.ResponseWriter, r *http.Request, p httprou
 	ctx := r.Context()
 	user, err := h.UserService.Register(ctx, req.Email, req.Password)
 	if err != nil {
-		if err.Error() == "email already registered" {
+		if errors.Is(err, domain.ErrEmailAlreadyRegistered) {
 			helper.BadResponse(w, http.StatusConflict, "email already registered")
 		} else {
 			helper.BadResponse(w, http.StatusInternalServerError, "register failed")

@@ -37,3 +37,8 @@ func (m *MockAuthService) ResetPassword(ctx context.Context, newPassword, resetT
 	args := m.Called(ctx, newPassword, resetToken)
 	return args.Error(0)
 }
+func (m *MockAuthService) LoginWithGoogle(ctx context.Context, info *domain.GoogleUserInfo) (string, error) {
+	args := m.Called(ctx, info)
+
+	return args.String(0), args.Error(1)
+}

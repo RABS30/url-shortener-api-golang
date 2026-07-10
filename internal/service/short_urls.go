@@ -22,14 +22,19 @@ func NewShortUrlService(repo domain.ShortUrlsRepository) domain.ShortUrlsService
 
 func (s *shortUrlsService) CreateShortUrl(ctx context.Context, userId int64, originalUrl string, expiredAt time.Time) (*domain.ShortUrl, error) {
 	_, err := url.ParseRequestURI(originalUrl)
-	if err != nil {     
+	if err != nil {
 		return nil, fmt.Errorf("invalid URL format: %w", err)
+	}
+
+	shortCode, err := generateShortCode(8)
+	if err != nil {
+		return nil, fmt.Errorf("failed generate short code: %w", err)
 	}
 
 	for range 3 {
 		inputData := &domain.ShortUrl{
 			UserId:      userId,
-			ShortCode:   generateShortCode(),
+			ShortCode:   shortCode,
 			OriginalUrl: originalUrl,
 			ExpiredAt:   expiredAt,
 		}
@@ -45,7 +50,6 @@ func (s *shortUrlsService) CreateShortUrl(ctx context.Context, userId int64, ori
 		}
 	}
 
-	// PERBAIKAN: Format error lowercase dan seragam tanpa titik rabs
 	return nil, fmt.Errorf("failed to create short URL after multiple attempts: %w", err)
 }
 
@@ -85,15 +89,18 @@ func (s *shortUrlsService) GetShortUrlByShortCode(ctx context.Context, shortCode
 	return result, nil
 }
 
-func generateShortCode() string {
+func generateShortCode(size int) (string, error) {
 	const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	result := make([]byte, 6) 
-	
+	result := make([]byte, size)
+
 	maxLimit := big.NewInt(int64(len(chars)))
 
 	for i := range result {
-		num, _ := rand.Int(rand.Reader, maxLimit)
+		num, err := rand.Int(rand.Reader, maxLimit)
+		if err != nil {
+			return "", err
+		}
 		result[i] = chars[num.Int64()]
 	}
-	return string(result)
+	return string(result), nil
 }

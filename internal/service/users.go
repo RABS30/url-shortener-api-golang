@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"shorter-url/internal/database"
 	"shorter-url/internal/domain"
 	"shorter-url/internal/helper"
+	"shorter-url/internal/repository"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -16,13 +18,15 @@ type userService struct {
 	repo      domain.UserRepository
 	JwtSecret []byte
 	hasher    domain.PasswordHasher
+	db        database.PgxTransactor
 }
 
-func NewUserService(repo domain.UserRepository, JwtSecret []byte, hasher domain.PasswordHasher) domain.UserService {
+func NewUserService(repo domain.UserRepository, JwtSecret []byte, hasher domain.PasswordHasher, db database.PgxTransactor) domain.UserService {
 	return &userService{
 		repo:      repo,
 		JwtSecret: JwtSecret,
 		hasher:    hasher,
+		db:        db,
 	}
 }
 
@@ -32,7 +36,7 @@ func (s *userService) Register(ctx context.Context, email string, password strin
 		return nil, fmt.Errorf("failed to check existing email: %w", err)
 	}
 	if existingUser != nil {
-		return nil, errors.New("email already registered")
+		return nil, domain.ErrEmailAlreadyRegistered
 	}
 
 	hashedPassword, err := s.hasher.Hash(ctx, password)
@@ -49,7 +53,6 @@ func (s *userService) Register(ctx context.Context, email string, password strin
 	if err != nil {
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
-
 	return result, nil
 }
 
@@ -94,7 +97,7 @@ func (s *userService) ChangePassword(ctx context.Context, email string, oldPassw
 
 	err = s.hasher.Compare(ctx, oldPassword, user.PasswordHash)
 	if err != nil {
-		return fmt.Errorf("compare password in change password: %w", domain.ErrInvalidPassword)
+		return fmt.Errorf("compare password in change password: %w", domain.ErrInvalidCredentials)
 	}
 
 	hashedPassword, err := s.hasher.Hash(ctx, newPassword)
@@ -143,4 +146,48 @@ func (s *userService) ResetPassword(ctx context.Context, newPassword string, res
 	}
 
 	return nil
+}
+
+func (s *userService) LoginWithGoogle(ctx context.Context, info *domain.GoogleUserInfo) (string, error) {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return "", fmt.Errorf("login with google: begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	txUserRepo := repository.NewUserRepository(tx)
+	txOauthRepo := repository.NewOauthAccountsRepository(tx)
+
+	user, err := txUserRepo.Upsert(ctx, &domain.User{
+		Email:      info.Email,
+		IsVerified: info.EmailVerified,
+	})
+	if err != nil {
+		return "", fmt.Errorf("login with google: upsert user: %w", err)
+	}
+
+	_, err = txOauthRepo.Upsert(ctx, &domain.OauthAccounts{
+		UserId:         user.Id,
+		Provider:       "google",
+		ProviderUserId: info.GoogleID,
+	})
+	if err != nil {
+		return "", fmt.Errorf("login with google: upsert oauth account: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return "", fmt.Errorf("login with google: commit tx: %w", err)
+	}
+
+	claims := jwt.MapClaims{
+		"user_id": user.Id,
+		"email":   user.Email,
+		"exp":     time.Now().Add(time.Hour * 24).Unix(),
+	}
+
+	token, err := helper.GenerateJWTToken(claims, s.JwtSecret)
+	if err != nil {
+		return "", fmt.Errorf("login with google: generate jwt: %w", err)
+	}
+	return token, nil
 }

@@ -14,6 +14,16 @@ type User struct {
 	CreatedAt    time.Time
 }
 
+type GoogleUserInfo struct {
+	GoogleID      string `json:"sub"`
+	Email         string `json:"email"`
+	EmailVerified bool   `json:"email_verified"`
+	Name          string `json:"name"`
+	GivenName     string `json:"given_name"`
+	FamilyName    string `json:"family_name"`
+	Picture       string `json:"picture"`
+}
+
 type UserRepository interface {
 	Create(ctx context.Context, user *User) (*User, error)
 	Update(ctx context.Context, user *User) (*User, error)
@@ -22,6 +32,7 @@ type UserRepository interface {
 	UpdateVerified(ctx context.Context, id int64, verify bool) error
 	FindById(ctx context.Context, id int64) (*User, error)
 	FindByEmail(ctx context.Context, email string) (*User, error)
+	Upsert(ctx context.Context, user *User) (*User, error)
 }
 
 type UserService interface {
@@ -29,6 +40,7 @@ type UserService interface {
 	Login(ctx context.Context, email string, password string) (string, error)
 	ChangePassword(ctx context.Context, email string, oldPassword string, newPassword string) error
 	ResetPassword(ctx context.Context, newPassword string, resetToken string) error
+	LoginWithGoogle(ctx context.Context, userInfo *GoogleUserInfo) (string, error)
 }
 
 type EmailService interface {

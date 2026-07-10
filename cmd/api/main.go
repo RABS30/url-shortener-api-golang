@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"shorter-url/internal/config"
 	"shorter-url/internal/database"
 	"shorter-url/internal/handler"
 	"shorter-url/internal/helper"
@@ -25,6 +26,8 @@ func main() {
 	}
 
 	emailService := helper.NewEmailService(os.Getenv("MAIL_HOST"), os.Getenv("MAIL_PORT"), os.Getenv("MAIL_USERNAME"), os.Getenv("MAIL_PASSWORD"))
+
+	googleOauthConfig := config.NewGoogleOauthConfig()
 
 	hasher := helper.NewBcryptHasher()
 
@@ -57,8 +60,10 @@ func main() {
 	userOtpsService := service.NewUserOtpsService(userOtpsRepo, emailService, userRepo, []byte(JwtSecret))
 	userOtpsHandler := handler.NewUserOtpsHandler(userOtpsService)
 
-	userService := service.NewUserService(userRepo, []byte(JwtSecret), hasher)
+	userService := service.NewUserService(userRepo, []byte(JwtSecret), hasher, database)
 	userHandler := handler.NewUserHandler(userService, userOtpsService, cookieConfig)
+
+	oauthGoogleHandler := handler.NewOauthGoogleHandler(userService, googleOauthConfig, *cookieConfig)
 
 	router := httprouter.New()
 
@@ -68,6 +73,9 @@ func main() {
 	router.POST("/user/register", middleware.GuestOnly(JwtSecret)(userHandler.Register))
 	router.POST("/user/reset-password", userHandler.ResetPassword)
 	router.POST("/user/change-password", userHandler.ChangePassword)
+
+	router.GET("/user/login/google", oauthGoogleHandler.Login)
+	router.GET("/auth/google/callback", oauthGoogleHandler.Callback)
 
 	router.POST("/send-otp", userOtpsHandler.RequestOTP)
 	router.POST("/verify-otp", userOtpsHandler.VerifyOTP)

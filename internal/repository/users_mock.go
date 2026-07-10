@@ -61,3 +61,12 @@ func (m *MockUserRepository) FindById(ctx context.Context, id int64) (*domain.Us
 	}
 	return user, args.Error(1)
 }
+
+func (m *MockUserRepository) Upsert(ctx context.Context, user *domain.User) (*domain.User, error) {
+	args := m.Called(ctx, user)
+	var res *domain.User
+	if args.Get(0) != nil {
+		res = args.Get(0).(*domain.User)
+	}
+	return res, args.Error(1)
+}

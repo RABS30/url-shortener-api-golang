@@ -8,6 +8,7 @@ import (
 	"shorter-url/internal/repository"
 	"testing"
 
+	"github.com/pashagolub/pgxmock/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"golang.org/x/crypto/bcrypt"
@@ -17,7 +18,8 @@ func Test_Service_Register_Pass(t *testing.T) {
 	mockRepo := new(repository.MockUserRepository)
 	mockHasher := new(helper.MockPasswordHasher)
 	secretKey := []byte("super-secret-key")
-	svc := NewUserService(mockRepo, secretKey, mockHasher)
+	mockPool, _ := pgxmock.NewPool()
+	svc := NewUserService(mockRepo, secretKey, mockHasher, mockPool)
 
 	mockRepo.On("FindByEmail", mock.Anything, "new@mail.com").Return(nil, nil)
 	mockRepo.On("Create", mock.Anything, mock.AnythingOfType("*domain.User")).Return(&domain.User{
@@ -37,7 +39,8 @@ func Test_Service_Register_Pass(t *testing.T) {
 func Test_Service_Register_EmailAlreadyExist(t *testing.T) {
 	mockRepo := new(repository.MockUserRepository)
 	mockHasher := new(helper.MockPasswordHasher)
-	svc := NewUserService(mockRepo, []byte("secret"), mockHasher)
+	mockPool, _ := pgxmock.NewPool()
+	svc := NewUserService(mockRepo, []byte("secret"), mockHasher, mockPool)
 
 	mockRepo.On("FindByEmail", mock.Anything, "exist@mail.com").Return(&domain.User{Id: 1, Email: "exist@mail.com"}, nil)
 
@@ -54,7 +57,8 @@ func Test_Service_Login_Pass(t *testing.T) {
 	mockRepo := new(repository.MockUserRepository)
 	mockHasher := new(helper.MockPasswordHasher)
 	secretKey := []byte("secret-token-key")
-	svc := NewUserService(mockRepo, secretKey, mockHasher)
+	mockPool, err := pgxmock.NewPool()
+	svc := NewUserService(mockRepo, secretKey, mockHasher, mockPool)
 
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("mypass123"), bcrypt.DefaultCost)
 
@@ -76,7 +80,8 @@ func Test_Service_Login_Pass(t *testing.T) {
 func Test_Service_Login_WrongPasswordOrEmailNotFound(t *testing.T) {
 	mockRepo := new(repository.MockUserRepository)
 	mockHasher := new(helper.MockPasswordHasher)
-	svc := NewUserService(mockRepo, []byte("secret"), mockHasher)
+	mockPool, _ := pgxmock.NewPool()
+	svc := NewUserService(mockRepo, []byte("secret"), mockHasher, mockPool)
 
 	t.Run("Email NotFound", func(t *testing.T) {
 		mockRepo.On("FindByEmail", mock.Anything, "notfound@mail.com").Return(nil, nil).Once()
