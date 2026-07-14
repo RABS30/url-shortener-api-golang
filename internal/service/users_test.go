@@ -19,14 +19,14 @@ func Test_Service_Register_Pass(t *testing.T) {
 	mockHasher := new(helper.MockPasswordHasher)
 	secretKey := []byte("super-secret-key")
 	mockPool, _ := pgxmock.NewPool()
-	svc := NewUserService(mockRepo, secretKey, mockHasher, mockPool)
+	mockOtp := new(MockUserOtpsService)
+
+	svc := NewUserService(mockRepo, secretKey, mockHasher, mockPool, mockOtp)
 
 	mockRepo.On("FindByEmail", mock.Anything, "new@mail.com").Return(nil, nil)
-	mockRepo.On("Create", mock.Anything, mock.AnythingOfType("*domain.User")).Return(&domain.User{
-		Id:    1,
-		Email: "new@mail.com",
-	}, nil)
+	mockRepo.On("Create", mock.Anything, mock.AnythingOfType("*domain.User")).Return(&domain.User{Id: 1, Email: "new@mail.com"}, nil)
 	mockHasher.On("Hash", mock.Anything, "password123").Return("hashed_password", nil)
+	mockOtp.On("SendOTP", mock.Anything, "new@mail.com", "verification_account").Return(nil)
 
 	result, err := svc.Register(context.Background(), "new@mail.com", "password123")
 
@@ -39,9 +39,13 @@ func Test_Service_Register_Pass(t *testing.T) {
 func Test_Service_Register_EmailAlreadyExist(t *testing.T) {
 	mockRepo := new(repository.MockUserRepository)
 	mockHasher := new(helper.MockPasswordHasher)
+	secretKey := []byte("super-secret-key")
 	mockPool, _ := pgxmock.NewPool()
-	svc := NewUserService(mockRepo, []byte("secret"), mockHasher, mockPool)
+	mockOtp := new(MockUserOtpsService)
 
+	svc := NewUserService(mockRepo, secretKey, mockHasher, mockPool, mockOtp)
+
+	mockOtp.On("SendOTP", mock.Anything, "exist@mail.com", "verification_account").Return(nil)
 	mockRepo.On("FindByEmail", mock.Anything, "exist@mail.com").Return(&domain.User{Id: 1, Email: "exist@mail.com"}, nil)
 
 	result, err := svc.Register(context.Background(), "exist@mail.com", "password123")
@@ -56,18 +60,15 @@ func Test_Service_Register_EmailAlreadyExist(t *testing.T) {
 func Test_Service_Login_Pass(t *testing.T) {
 	mockRepo := new(repository.MockUserRepository)
 	mockHasher := new(helper.MockPasswordHasher)
-	secretKey := []byte("secret-token-key")
-	mockPool, err := pgxmock.NewPool()
-	svc := NewUserService(mockRepo, secretKey, mockHasher, mockPool)
+	secretKey := []byte("super-secret-key")
+	mockPool, _ := pgxmock.NewPool()
+	mockOtp := new(MockUserOtpsService)
+
+	svc := NewUserService(mockRepo, secretKey, mockHasher, mockPool, mockOtp)
 
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("mypass123"), bcrypt.DefaultCost)
-
-	mockRepo.On("FindByEmail", mock.Anything, "user@mail.com").Return(&domain.User{
-		Id:           99,
-		Email:        "user@mail.com",
-		PasswordHash: string(hashedPassword),
-	}, nil)
-
+	mockRepo.On("FindByEmail", mock.Anything, "user@mail.com").Return(&domain.User{Id: 99, Email: "user@mail.com", PasswordHash: string(hashedPassword)}, nil)
+	mockOtp.On("SendOTP", mock.Anything, "user@mail.com", "verification_account").Return(nil)
 	mockHasher.On("Compare", mock.Anything, "mypass123", string(hashedPassword)).Return(nil)
 
 	token, err := svc.Login(context.Background(), "user@mail.com", "mypass123")
@@ -80,11 +81,14 @@ func Test_Service_Login_Pass(t *testing.T) {
 func Test_Service_Login_WrongPasswordOrEmailNotFound(t *testing.T) {
 	mockRepo := new(repository.MockUserRepository)
 	mockHasher := new(helper.MockPasswordHasher)
+	secretKey := []byte("super-secret-key")
 	mockPool, _ := pgxmock.NewPool()
-	svc := NewUserService(mockRepo, []byte("secret"), mockHasher, mockPool)
-
+	mockOtp := new(MockUserOtpsService)
+	svc := NewUserService(mockRepo, secretKey, mockHasher, mockPool, mockOtp)
 	t.Run("Email NotFound", func(t *testing.T) {
 		mockRepo.On("FindByEmail", mock.Anything, "notfound@mail.com").Return(nil, nil).Once()
+		mockOtp.On("SendOTP", mock.Anything, "notfound@mail.com", "verification_account").
+			Return(nil)
 
 		token, err := svc.Login(context.Background(), "notfound@mail.com", "any-password")
 		assert.Error(t, err)
@@ -98,7 +102,8 @@ func Test_Service_Login_WrongPasswordOrEmailNotFound(t *testing.T) {
 			Email:        "user@mail.com",
 			PasswordHash: "invalid-hash-bukan-bcrypt",
 		}, nil).Once()
-
+		mockOtp.On("SendOTP", mock.Anything, "user@mail.com", "verification_account").
+			Return(nil)
 		mockHasher.On("Compare", mock.Anything, "wrong-password", "invalid-hash-bukan-bcrypt").Return(errors.New("crypto/bcrypt: hashedPassword is not the hash of the given password")).Once()
 
 		token2, err2 := svc.Login(context.Background(), "user@mail.com", "wrong-password")

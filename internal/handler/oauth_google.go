@@ -122,7 +122,8 @@ func (h *oauthGoogleHandler) Callback(w http.ResponseWriter, r *http.Request, _ 
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	http.Redirect(w, r, "/login-success", http.StatusTemporaryRedirect)
+	http.Redirect(w, r, "http://localhost:5173/auth/callback", http.StatusTemporaryRedirect)
+
 }
 
 func generateStateOauthCookie(w http.ResponseWriter) string {

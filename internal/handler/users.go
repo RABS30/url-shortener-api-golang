@@ -7,11 +7,13 @@ import (
 	"shorter-url/internal/domain"
 	"shorter-url/internal/helper"
 	"shorter-url/internal/middleware"
+	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/julienschmidt/httprouter"
 )
 
-type userRequest struct {
+type UserCredentials struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
@@ -32,18 +34,20 @@ type userHandler struct {
 	UserService     domain.UserService
 	UserOtpsService domain.UserOtpsService
 	CookieConfig    CookieConfig
+	JwtSecret       []byte
 }
 
-func NewUserHandler(userService domain.UserService, userOtps domain.UserOtpsService, cookieConfig *CookieConfig) *userHandler {
+func NewUserHandler(userService domain.UserService, userOtps domain.UserOtpsService, cookieConfig *CookieConfig, jwtSecret []byte) *userHandler {
 	return &userHandler{
 		UserService:     userService,
 		UserOtpsService: userOtps,
 		CookieConfig:    *cookieConfig,
+		JwtSecret:       jwtSecret,
 	}
 }
 
 func (h *userHandler) Register(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	var req userRequest
+	var req UserCredentials
 
 	request := json.NewDecoder(r.Body)
 	request.DisallowUnknownFields()
@@ -67,6 +71,24 @@ func (h *userHandler) Register(w http.ResponseWriter, r *http.Request, p httprou
 	}
 
 	ctx := r.Context()
+
+	token, err := helper.GenerateJWTToken(jwt.MapClaims{
+		"email":    req.Email,
+		"otp_type": "verification_account",
+	}, h.JwtSecret)
+
+	expiredToken, _ := time.ParseDuration("1m")
+	http.SetCookie(w, &http.Cookie{
+		Name:     "verify-otp",
+		Value:    token,
+		Domain:   h.CookieConfig.Domain,
+		Path:     h.CookieConfig.Path,
+		MaxAge:   int(expiredToken.Seconds()),
+		HttpOnly: true,
+		Secure:   h.CookieConfig.Secure,
+		SameSite: http.SameSiteLaxMode,
+	})
+
 	user, err := h.UserService.Register(ctx, req.Email, req.Password)
 	if err != nil {
 		if errors.Is(err, domain.ErrEmailAlreadyRegistered) {
@@ -90,7 +112,7 @@ func (h *userHandler) Register(w http.ResponseWriter, r *http.Request, p httprou
 }
 
 func (h *userHandler) Login(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	var req userRequest
+	var req UserCredentials
 
 	request := json.NewDecoder(r.Body)
 	request.DisallowUnknownFields()
@@ -144,13 +166,13 @@ func (h *userHandler) Login(w http.ResponseWriter, r *http.Request, p httprouter
 func (h *userHandler) ResetPassword(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	ctx := r.Context()
 
-	type RequestBody struct {
+	type ResetPasswordRequest struct {
 		Email      string `json:"email"`
 		ResetToken string `json:"reset_token"`
 		Password1  string `json:"password_1"`
 		Password2  string `json:"password_2"`
 	}
-	var userRequest = &RequestBody{}
+	var userRequest = &ResetPasswordRequest{}
 
 	request := json.NewDecoder(r.Body)
 	request.DisallowUnknownFields()
@@ -180,6 +202,12 @@ func (h *userHandler) ResetPassword(w http.ResponseWriter, r *http.Request, p ht
 	helper.GoodResponse(w, http.StatusOK, "success", nil)
 }
 
+func (h *userHandler) HelloWorld(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	helper.GoodResponse(w, http.StatusOK, "success", map[string]any{
+		"head": "berhasil",
+		"code": 200,
+	})
+}
 func (h *userHandler) ChangePassword(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 
 }

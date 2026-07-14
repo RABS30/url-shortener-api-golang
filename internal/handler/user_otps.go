@@ -2,21 +2,32 @@ package handler
 
 import (
 	"encoding/json"
-	"log"
+	"errors"
+	"fmt"
 	"net/http"
 	"shorter-url/internal/domain"
 	"shorter-url/internal/helper"
+	"shorter-url/internal/middleware"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/julienschmidt/httprouter"
 )
 
 type userOtpsHandler struct {
 	UserOtpsService domain.UserOtpsService
+	SecretKey       []byte
 }
 
-func NewUserOtpsHandler(userOtpsService domain.UserOtpsService) *userOtpsHandler {
+type SessionOtpPageClaims struct {
+	Email   string `json:"email"`
+	OtpType string `json:"otp_type"`
+	jwt.RegisteredClaims
+}
+
+func NewUserOtpsHandler(userOtpsService domain.UserOtpsService, secretKey []byte) *userOtpsHandler {
 	return &userOtpsHandler{
 		UserOtpsService: userOtpsService,
+		SecretKey:       secretKey,
 	}
 }
 
@@ -70,23 +81,77 @@ func (h *userOtpsHandler) VerifyOTP(w http.ResponseWriter, r *http.Request, p ht
 	err := request.Decode(&userRequest)
 	if err != nil {
 		helper.BadResponse(w, http.StatusBadRequest, "invalid request payload")
+
+		if wrapper, ok := w.(*middleware.LogResponseWriter); ok {
+			wrapper.WriteError(fmt.Errorf("Verify  OTP code: %w", err))
+		}
 		return
 	}
 	if userRequest.Email == "" || userRequest.OtpCode == "" || userRequest.OtpType == "" {
 		helper.BadResponse(w, http.StatusBadRequest, "invalid request payload")
+
+		if wrapper, ok := w.(*middleware.LogResponseWriter); ok {
+			wrapper.WriteError(fmt.Errorf("Verify  OTP code: %w", err))
+		}
 		return
 	}
 
 	token, err := h.UserOtpsService.VerifyOTP(ctx, userRequest.OtpCode, userRequest.Email, userRequest.OtpType)
 	if err != nil {
 		helper.BadResponse(w, http.StatusBadRequest, "failed to verify otp code")
+
+		if wrapper, ok := w.(*middleware.LogResponseWriter); ok {
+			wrapper.WriteError(fmt.Errorf("Verify  OTP code: %w", err))
+		}
 		return
 	}
 
 	if userRequest.OtpType == "verification_account" {
 		helper.GoodResponse(w, http.StatusOK, "success", nil)
+
 		return
 	}
-	log.Println(token)
+
 	helper.GoodResponse(w, http.StatusOK, "success", &ResponseBody{Token: token})
+}
+
+func (h *userOtpsHandler) VerifySessionOtpPage(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	claims := &SessionOtpPageClaims{}
+
+	tokenString, err := r.Cookie("verify-otp")
+	if err != nil {
+		if errors.Is(err, http.ErrNoCookie) {
+			helper.BadResponse(w, http.StatusForbidden, "forbidden: missing token")
+			return
+		}
+		if wrapper, ok := w.(*middleware.LogResponseWriter); ok {
+			wrapper.WriteError(err)
+		}
+		helper.BadResponse(w, http.StatusForbidden, "forbidden")
+		return
+	}
+
+	token, err := jwt.ParseWithClaims(tokenString.Value, claims, func(t *jwt.Token) (any, error) {
+		return []byte(h.SecretKey), nil
+	})
+	if err != nil || !token.Valid || claims.OtpType != "verification_account" {
+		helper.BadResponse(w, http.StatusForbidden, "invalid token or expired")
+
+		if wrapper, ok := w.(*middleware.LogResponseWriter); ok {
+			wrapper.WriteError(fmt.Errorf("invalid token or expired: %w", err))
+		}
+
+		return
+	}
+
+	type responseBody struct {
+		Email   string `json:"email"`
+		OtpType string `json:"otp_type"`
+	}
+
+	helper.GoodResponse(w, http.StatusOK, "ok", &responseBody{
+		Email:   claims.Email,
+		OtpType: claims.OtpType,
+	})
+
 }

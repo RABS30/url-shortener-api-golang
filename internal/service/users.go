@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"shorter-url/internal/database"
 	"shorter-url/internal/domain"
 	"shorter-url/internal/helper"
@@ -15,31 +16,35 @@ import (
 )
 
 type userService struct {
-	repo      domain.UserRepository
-	JwtSecret []byte
-	hasher    domain.PasswordHasher
-	db        database.PgxTransactor
+	Repo       domain.UserRepository
+	JwtSecret  []byte
+	Hasher     domain.PasswordHasher
+	Db         database.PgxTransactor
+	OtpService domain.UserOtpsService
 }
 
-func NewUserService(repo domain.UserRepository, JwtSecret []byte, hasher domain.PasswordHasher, db database.PgxTransactor) domain.UserService {
+func NewUserService(repo domain.UserRepository, JwtSecret []byte, hasher domain.PasswordHasher, db database.PgxTransactor, otpsService domain.UserOtpsService) domain.UserService {
 	return &userService{
-		repo:      repo,
-		JwtSecret: JwtSecret,
-		hasher:    hasher,
-		db:        db,
+		Repo:       repo,
+		JwtSecret:  JwtSecret,
+		Hasher:     hasher,
+		Db:         db,
+		OtpService: otpsService,
 	}
 }
 
 func (s *userService) Register(ctx context.Context, email string, password string) (*domain.User, error) {
-	existingUser, err := s.repo.FindByEmail(ctx, email)
+	existingUser, err := s.Repo.FindByEmail(ctx, email)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check existing email: %w", err)
+		if !errors.Is(err, domain.ErrNotFound) {
+			return nil, fmt.Errorf("failed to check existing email: %w", err)
+		}
 	}
 	if existingUser != nil {
 		return nil, domain.ErrEmailAlreadyRegistered
 	}
 
-	hashedPassword, err := s.hasher.Hash(ctx, password)
+	hashedPassword, err := s.Hasher.Hash(ctx, password)
 	if err != nil {
 		return nil, fmt.Errorf("failed to hash password: %w", err)
 	}
@@ -49,30 +54,42 @@ func (s *userService) Register(ctx context.Context, email string, password strin
 		PasswordHash: string(hashedPassword),
 	}
 
-	result, err := s.repo.Create(ctx, newUser)
+	result, err := s.Repo.Create(ctx, newUser)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
+
+	otpCtx := context.WithoutCancel(ctx)
+	go func() {
+		err = s.OtpService.SendOTP(otpCtx, result.Email, "verification_account")
+		if err != nil {
+			log.Printf("failed to  send otp code: %v", err)
+		}
+	}()
+
 	return result, nil
 }
 
 func (s *userService) Login(ctx context.Context, email string, password string) (string, error) {
-	invalidError := errors.New("invalid email or password")
 
-	existingUser, err := s.repo.FindByEmail(ctx, email)
+	existingUser, err := s.Repo.FindByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return "", invalidError
+			return "", domain.ErrInvalidEmailorPassword
 		}
 		return "", fmt.Errorf("failed to find user by email: %w", err)
 	}
 	if existingUser == nil {
-		return "", invalidError
+		return "", domain.ErrInvalidEmailorPassword
 	}
 
-	err = s.hasher.Compare(ctx, password, existingUser.PasswordHash)
+	if !existingUser.IsVerified {
+		return "", domain.ErrUnverified
+	}
+
+	err = s.Hasher.Compare(ctx, password, existingUser.PasswordHash)
 	if err != nil {
-		return "", invalidError
+		return "", domain.ErrInvalidEmailorPassword
 	}
 
 	claims := jwt.MapClaims{
@@ -90,22 +107,22 @@ func (s *userService) Login(ctx context.Context, email string, password string) 
 }
 
 func (s *userService) ChangePassword(ctx context.Context, email string, oldPassword string, newPassword string) error {
-	user, err := s.repo.FindByEmail(ctx, email)
+	user, err := s.Repo.FindByEmail(ctx, email)
 	if err != nil {
 		return err
 	}
 
-	err = s.hasher.Compare(ctx, oldPassword, user.PasswordHash)
+	err = s.Hasher.Compare(ctx, oldPassword, user.PasswordHash)
 	if err != nil {
 		return fmt.Errorf("compare password in change password: %w", domain.ErrInvalidCredentials)
 	}
 
-	hashedPassword, err := s.hasher.Hash(ctx, newPassword)
+	hashedPassword, err := s.Hasher.Hash(ctx, newPassword)
 	if err != nil {
 		return fmt.Errorf("new hash password in change password: %w", err)
 	}
 
-	err = s.repo.UpdatePassword(ctx, user.Id, string(hashedPassword))
+	err = s.Repo.UpdatePassword(ctx, user.Id, string(hashedPassword))
 	if err != nil {
 		return err
 	}
@@ -130,17 +147,17 @@ func (s *userService) ResetPassword(ctx context.Context, newPassword string, res
 
 	email, _ := claims["email"].(string)
 
-	hashedPassword, err := s.hasher.Hash(ctx, newPassword)
+	hashedPassword, err := s.Hasher.Hash(ctx, newPassword)
 	if err != nil {
 		return fmt.Errorf("create hash password in reset password: %w", err)
 	}
 
-	user, err := s.repo.FindByEmail(ctx, email)
+	user, err := s.Repo.FindByEmail(ctx, email)
 	if err != nil {
 		return err
 	}
 
-	err = s.repo.UpdatePassword(ctx, user.Id, string(hashedPassword))
+	err = s.Repo.UpdatePassword(ctx, user.Id, string(hashedPassword))
 	if err != nil {
 		return err
 	}
@@ -149,7 +166,7 @@ func (s *userService) ResetPassword(ctx context.Context, newPassword string, res
 }
 
 func (s *userService) LoginWithGoogle(ctx context.Context, info *domain.GoogleUserInfo) (string, error) {
-	tx, err := s.db.Begin(ctx)
+	tx, err := s.Db.Begin(ctx)
 	if err != nil {
 		return "", fmt.Errorf("login with google: begin tx: %w", err)
 	}

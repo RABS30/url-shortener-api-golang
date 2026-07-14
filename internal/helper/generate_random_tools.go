@@ -4,8 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-
-	"github.com/golang-jwt/jwt/v5"
 )
 
 func GenerateRandomHex(length int) (string, error) {
@@ -30,15 +28,4 @@ func GenerateRandomChar(length int) (string, error) {
 	}
 
 	return string(bytes), nil
-}
-
-func GenerateJWTToken(claims jwt.Claims, secretKey []byte) (string, error) {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	tokenString, err := token.SignedString(secretKey)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate jwt token: %w", err)
-	}
-
-	return tokenString, nil
 }

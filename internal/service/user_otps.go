@@ -114,3 +114,4 @@ func (s *userOtpsService) VerifyOTP(ctx context.Context, code string, email stri
 
 	return token, nil
 }
+

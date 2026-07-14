@@ -58,10 +58,10 @@ func main() {
 
 	userOtpsRepo := repository.NewUserOtpsRepository(database)
 	userOtpsService := service.NewUserOtpsService(userOtpsRepo, emailService, userRepo, []byte(JwtSecret))
-	userOtpsHandler := handler.NewUserOtpsHandler(userOtpsService)
+	userOtpsHandler := handler.NewUserOtpsHandler(userOtpsService, []byte(JwtSecret))
 
-	userService := service.NewUserService(userRepo, []byte(JwtSecret), hasher, database)
-	userHandler := handler.NewUserHandler(userService, userOtpsService, cookieConfig)
+	userService := service.NewUserService(userRepo, []byte(JwtSecret), hasher, database, userOtpsService)
+	userHandler := handler.NewUserHandler(userService, userOtpsService, cookieConfig, []byte(JwtSecret))
 
 	oauthGoogleHandler := handler.NewOauthGoogleHandler(userService, googleOauthConfig, *cookieConfig)
 
@@ -69,6 +69,7 @@ func main() {
 
 	router.GET("/r/:shortCode", shortUrlHandler.AccessShortCode)
 
+	router.GET("/", userHandler.HelloWorld)
 	router.POST("/user/login", middleware.GuestOnly(JwtSecret)(userHandler.Login))
 	router.POST("/user/register", middleware.GuestOnly(JwtSecret)(userHandler.Register))
 	router.POST("/user/reset-password", userHandler.ResetPassword)
@@ -77,8 +78,9 @@ func main() {
 	router.GET("/user/login/google", oauthGoogleHandler.Login)
 	router.GET("/auth/google/callback", oauthGoogleHandler.Callback)
 
-	router.POST("/send-otp", userOtpsHandler.RequestOTP)
+	// router.POST("/send-otp", userOtpsHandler.RequestOTP)
 	router.POST("/verify-otp", userOtpsHandler.VerifyOTP)
+	router.GET("/verify-user", userOtpsHandler.VerifySessionOtpPage)
 
 	router.POST("/api/urls", middleware.AuthMiddleware(JwtSecret)(middleware.VerifiedUserOnly(shortUrlHandler.Create)))
 	router.GET("/api/urls/:shortUrlId/analytics", middleware.AuthMiddleware(JwtSecret)(middleware.VerifiedUserOnly(clickEventHandler.FindByShortUrlId)))

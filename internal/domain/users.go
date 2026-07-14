@@ -24,6 +24,11 @@ type GoogleUserInfo struct {
 	Picture       string `json:"picture"`
 }
 
+type VerificationAccountContext struct {
+	Email string `json:"email"`
+	Code  string
+}
+
 type UserRepository interface {
 	Create(ctx context.Context, user *User) (*User, error)
 	Update(ctx context.Context, user *User) (*User, error)

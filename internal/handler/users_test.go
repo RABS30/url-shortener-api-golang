@@ -16,13 +16,14 @@ import (
 func Test_Register_Pass(t *testing.T) {
 	mockAuth := new(service.MockAuthService)
 	mockOtps := new(service.MockUserOtpsService)
+	MockSecret := []byte("this is jwt token")
 
 	cookieConfig := &CookieConfig{
 		Domain: "localhost",
 		MaxAge: 3600,
 		Secure: false,
 	}
-	handler := NewUserHandler(mockAuth, mockOtps, cookieConfig)
+	handler := NewUserHandler(mockAuth, mockOtps, cookieConfig, MockSecret)
 
 	mockAuth.On("Register", mock.Anything, "test@mail.com", "password123").Return(&domain.User{
 		Id:    1,
@@ -43,13 +44,14 @@ func Test_Register_Pass(t *testing.T) {
 func Test_Register_InvalidJSON(t *testing.T) {
 	mockAuth := new(service.MockAuthService)
 	mockOtps := new(service.MockUserOtpsService)
+	MockSecret := []byte("this is jwt token")
 
 	cookieConfig := &CookieConfig{
 		Domain: "localhost",
 		MaxAge: 3600,
 		Secure: false,
 	}
-	handler := NewUserHandler(mockAuth, mockOtps, cookieConfig)
+	handler := NewUserHandler(mockAuth, mockOtps, cookieConfig, MockSecret)
 
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, "/api/register", strings.NewReader(`{"email":`))
@@ -64,13 +66,14 @@ func Test_Register_InvalidJSON(t *testing.T) {
 func Test_Register_RequiredFields(t *testing.T) {
 	mockAuth := new(service.MockAuthService)
 	mockOtps := new(service.MockUserOtpsService)
+	MockSecret := []byte("this is jwt token")
 
 	cookieConfig := &CookieConfig{
 		Domain: "localhost",
 		MaxAge: 3600,
 		Secure: false,
 	}
-	handler := NewUserHandler(mockAuth, mockOtps, cookieConfig)
+	handler := NewUserHandler(mockAuth, mockOtps, cookieConfig, MockSecret)
 
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, "/api/register", strings.NewReader(`{"email":"", "password":""}`))
@@ -85,13 +88,14 @@ func Test_Register_RequiredFields(t *testing.T) {
 func Test_Register_ServiceError(t *testing.T) {
 	mockAuth := new(service.MockAuthService)
 	mockOtps := new(service.MockUserOtpsService)
+	MockSecret := []byte("this is jwt token")
 
 	cookieConfig := &CookieConfig{
 		Domain: "localhost",
 		MaxAge: 3600,
 		Secure: false,
 	}
-	handler := NewUserHandler(mockAuth, mockOtps, cookieConfig)
+	handler := NewUserHandler(mockAuth, mockOtps, cookieConfig, MockSecret)
 
 	mockAuth.On("Register", mock.Anything, "duplicate@mail.com", "password123").Return(nil, errors.New("email already registered"))
 
@@ -109,13 +113,14 @@ func Test_Register_ServiceError(t *testing.T) {
 func Test_Login_Pass(t *testing.T) {
 	mockAuth := new(service.MockAuthService)
 	mockOtps := new(service.MockUserOtpsService)
+	MockSecret := []byte("this is jwt token")
 
 	cookieConfig := &CookieConfig{
 		Domain: "localhost",
 		MaxAge: 3600,
 		Secure: false,
 	}
-	handler := NewUserHandler(mockAuth, mockOtps, cookieConfig)
+	handler := NewUserHandler(mockAuth, mockOtps, cookieConfig, MockSecret)
 
 	mockAuth.On("Login", mock.Anything, "test@mail.com", "password123").Return("mocked-jwt-token", nil)
 
@@ -140,13 +145,14 @@ func Test_Login_Pass(t *testing.T) {
 func Test_Login_InvalidJSON(t *testing.T) {
 	mockAuth := new(service.MockAuthService)
 	mockOtps := new(service.MockUserOtpsService)
+	MockSecret := []byte("this is jwt token")
 
 	cookieConfig := &CookieConfig{
 		Domain: "localhost",
 		MaxAge: 3600,
 		Secure: false,
 	}
-	handler := NewUserHandler(mockAuth, mockOtps, cookieConfig)
+	handler := NewUserHandler(mockAuth, mockOtps, cookieConfig, MockSecret)
 
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, "/api/login", strings.NewReader(`{"email":`))
@@ -161,13 +167,14 @@ func Test_Login_InvalidJSON(t *testing.T) {
 func Test_Login_RequiredFields(t *testing.T) {
 	mockAuth := new(service.MockAuthService)
 	mockOtps := new(service.MockUserOtpsService)
+	MockSecret := []byte("this is jwt token")
 
 	cookieConfig := &CookieConfig{
 		Domain: "localhost",
 		MaxAge: 3600,
 		Secure: false,
 	}
-	handler := NewUserHandler(mockAuth, mockOtps, cookieConfig)
+	handler := NewUserHandler(mockAuth, mockOtps, cookieConfig, MockSecret)
 
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, "/api/login", strings.NewReader(`{"email":"test@mail.com", "password":""}`))
@@ -182,13 +189,14 @@ func Test_Login_RequiredFields(t *testing.T) {
 func Test_Login_Unauthorized(t *testing.T) {
 	mockAuth := new(service.MockAuthService)
 	mockOtps := new(service.MockUserOtpsService)
+	MockSecret := []byte("this is jwt token")
 
 	cookieConfig := &CookieConfig{
 		Domain: "localhost",
 		MaxAge: 3600,
 		Secure: false,
 	}
-	handler := NewUserHandler(mockAuth, mockOtps, cookieConfig)
+	handler := NewUserHandler(mockAuth, mockOtps, cookieConfig, MockSecret)
 
 	mockAuth.On("Login", mock.Anything, "wrong@mail.com", "badpass").
 		Return("", errors.New("invalid email or password"))
