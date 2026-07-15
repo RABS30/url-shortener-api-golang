@@ -129,6 +129,15 @@ func GetUserIDFromContext(ctx context.Context) (int64, error) {
 	return userId, nil
 }
 
+func GetUserDetailFromContext(ctx context.Context) (*UserPrimaryClaims, error) {
+	userDetails, ok := ctx.Value(UserClaimsKey).(*UserPrimaryClaims)
+	if !ok || userDetails == nil {
+		return nil, fmt.Errorf("user data not found")
+	}
+
+	return userDetails, nil
+}
+
 func TokenIsValid(secretKey string, tokenString string) bool {
 	token, err := jwt.Parse(tokenString, func(t *jwt.Token) (any, error) {
 		return []byte(secretKey), nil

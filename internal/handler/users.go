@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"shorter-url/internal/domain"
 	"shorter-url/internal/helper"
@@ -19,8 +20,14 @@ type UserCredentials struct {
 }
 
 type userResponse struct {
-	Id    int64  `json:"id"`
-	Email string `json:"email"`
+	UserId int64  `json:"user_id"`
+	Email  string `json:"email"`
+}
+
+type userDetailsJWT struct {
+	UserId int64  `json:"user_id"`
+	Email  string `json:"email"`
+	jwt.RegisteredClaims
 }
 
 type CookieConfig struct {
@@ -104,8 +111,8 @@ func (h *userHandler) Register(w http.ResponseWriter, r *http.Request, p httprou
 	}
 
 	res := userResponse{
-		Id:    user.Id,
-		Email: user.Email,
+		UserId: user.Id,
+		Email:  user.Email,
 	}
 
 	helper.GoodResponse(w, http.StatusCreated, "registration successful", res)
@@ -119,7 +126,6 @@ func (h *userHandler) Login(w http.ResponseWriter, r *http.Request, p httprouter
 	err := request.Decode(&req)
 	if err != nil {
 		helper.BadResponse(w, http.StatusBadRequest, "invalid request payload")
-
 		if wrapper, ok := w.(*middleware.LogResponseWriter); ok {
 			wrapper.WriteError(err)
 		}
@@ -128,9 +134,8 @@ func (h *userHandler) Login(w http.ResponseWriter, r *http.Request, p httprouter
 
 	if req.Email == "" || req.Password == "" {
 		helper.BadResponse(w, http.StatusBadRequest, "email and password are required")
-
 		if wrapper, ok := w.(*middleware.LogResponseWriter); ok {
-			wrapper.WriteError(err)
+			wrapper.WriteError(errors.New("missing email or password"))
 		}
 		return
 	}
@@ -140,9 +145,22 @@ func (h *userHandler) Login(w http.ResponseWriter, r *http.Request, p httprouter
 	token, err := h.UserService.Login(ctx, req.Email, req.Password)
 	if err != nil {
 		helper.BadResponse(w, http.StatusUnauthorized, "invalid email or password")
-
 		if wrapper, ok := w.(*middleware.LogResponseWriter); ok {
 			wrapper.WriteError(err)
+		}
+		return
+	}
+
+	userDetails := &userDetailsJWT{}
+	claims, err := helper.DecodeJWTToken(token, userDetails, h.JwtSecret)
+	if err != nil || !claims.Valid {
+		helper.BadResponse(w, http.StatusUnauthorized, "invalid token or expired")
+		if wrapper, ok := w.(*middleware.LogResponseWriter); ok {
+			if err != nil {
+				wrapper.WriteError(fmt.Errorf("invalid token or expired: %w", err))
+			} else {
+				wrapper.WriteError(errors.New("invalid token claims or expired"))
+			}
 		}
 		return
 	}
@@ -160,7 +178,10 @@ func (h *userHandler) Login(w http.ResponseWriter, r *http.Request, p httprouter
 
 	http.SetCookie(w, cookie)
 
-	helper.GoodResponse(w, http.StatusOK, "login successfully", nil)
+	helper.GoodResponse(w, http.StatusOK, "login successfully", &userResponse{
+		Email:  userDetails.Email,
+		UserId: userDetails.UserId,
+	})
 }
 
 func (h *userHandler) ResetPassword(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -208,6 +229,21 @@ func (h *userHandler) HelloWorld(w http.ResponseWriter, r *http.Request, _ httpr
 		"code": 200,
 	})
 }
+
+func (h *userHandler) VerifyUser(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	user, err := middleware.GetUserDetailFromContext(r.Context())
+	if err != nil {
+		helper.BadResponse(w, http.StatusUnauthorized, "unauthorized")
+
+		if wrapper, ok := w.(*middleware.LogResponseWriter); ok {
+			wrapper.WriteError(fmt.Errorf("verify user: %w", err))
+		}
+		return
+	}
+
+	helper.GoodResponse(w, http.StatusOK, "success", user)
+}
+
 func (h *userHandler) ChangePassword(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 
 }

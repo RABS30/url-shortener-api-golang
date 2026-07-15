@@ -76,6 +76,7 @@ func main() {
 	router.POST("/user/register", middleware.GuestOnly(JwtSecret)(userHandler.Register))
 	router.POST("/user/reset-password", userHandler.ResetPassword)
 	router.POST("/user/change-password", userHandler.ChangePassword)
+	router.GET("/user/verify", authMiddleware.Authenticate(authMiddleware.VerifiedOnly(userHandler.VerifyUser)))
 
 	router.GET("/user/login/google", oauthGoogleHandler.Login)
 	router.GET("/auth/google/callback", oauthGoogleHandler.Callback)

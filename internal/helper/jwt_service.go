@@ -17,4 +17,13 @@ func GenerateJWTToken(claims jwt.Claims, secretKey []byte) (string, error) {
 	return tokenString, nil
 }
 
+func DecodeJWTToken(tokenString string, claims jwt.Claims, secretKey []byte) (*jwt.Token, error) {
+	data, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (any, error) {
+		return []byte(secretKey), nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("decode jwt token: %w", err)
+	}
 
+	return data, nil
+}
