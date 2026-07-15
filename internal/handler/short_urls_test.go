@@ -83,7 +83,7 @@ func Test_Create_ShortUrl_Unauthorized(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, "localhost:8080/api/urls", strings.NewReader(`{"original_url":"https://www.google.com"}`))
 
-	ctx := context.WithValue(request.Context(), middleware.UserClaims, &middleware.Claims{UserID: 0})
+	ctx := context.WithValue(request.Context(), middleware.UserClaimsKey, &middleware.UserPrimaryClaims{UserID: 0})
 	request = request.WithContext(ctx)
 
 	handler.Create(recorder, request, nil)

@@ -65,6 +65,8 @@ func main() {
 
 	oauthGoogleHandler := handler.NewOauthGoogleHandler(userService, googleOauthConfig, *cookieConfig)
 
+	authMiddleware := middleware.NewAuthMiddleware(userRepo, []byte(JwtSecret))
+
 	router := httprouter.New()
 
 	router.GET("/r/:shortCode", shortUrlHandler.AccessShortCode)
@@ -80,10 +82,13 @@ func main() {
 
 	// router.POST("/send-otp", userOtpsHandler.RequestOTP)
 	router.POST("/verify-otp", userOtpsHandler.VerifyOTP)
-	router.GET("/verify-user", userOtpsHandler.VerifySessionOtpPage)
+	router.GET("/verify-session-otp", userOtpsHandler.VerifySessionOtpPage)
 
-	router.POST("/api/urls", middleware.AuthMiddleware(JwtSecret)(middleware.VerifiedUserOnly(shortUrlHandler.Create)))
-	router.GET("/api/urls/:shortUrlId/analytics", middleware.AuthMiddleware(JwtSecret)(middleware.VerifiedUserOnly(clickEventHandler.FindByShortUrlId)))
+	// router.POST("/api/urls", authMiddleware.Authenticate(JwtSecret)(middleware.VerifiedUserOnly(shortUrlHandler.Create)))
+	// router.GET("/api/urls/:shortUrlId/analytics", middleware.Authenticate(JwtSecret)(middleware.VerifiedUserOnly(clickEventHandler.FindByShortUrlId)))
+
+	router.POST("/api/urls", authMiddleware.Authenticate(authMiddleware.VerifiedOnly(shortUrlHandler.Create)))
+	router.GET("/api/urls/:shortUrlId/analytics", authMiddleware.Authenticate(authMiddleware.VerifiedOnly(clickEventHandler.FindByShortUrlId)))
 
 	logger := middleware.Logger(router)
 	requestID := middleware.RequestID(logger)
