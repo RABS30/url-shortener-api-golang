@@ -32,7 +32,7 @@ func (r *userRepository) Create(ctx context.Context, user *domain.User) (*domain
 }
 
 func (r *userRepository) Upsert(ctx context.Context, user *domain.User) (*domain.User, error) {
-	query := `INSERT INTO users (email, password_hash, is_verified) VALUES ($1, $2, $3) ON CONFLICT (email)  DO UPDATE SET email = EXCLUDED.email RETURNING id, email, password_hash, is_verified, status, created_at`
+	query := `INSERT INTO users (email, password_hash, is_verified) VALUES ($1, $2, $3) ON CONFLICT (email)  DO UPDATE SET is_verified = EXCLUDED.is_verified RETURNING id, email, password_hash, is_verified, status, created_at`
 
 	err := r.db.QueryRow(ctx, query, user.Email, user.PasswordHash, user.IsVerified).Scan(
 		&user.Id,
