@@ -73,6 +73,7 @@ func main() {
 
 	router.GET("/", userHandler.HelloWorld)
 	router.POST("/user/login", middleware.GuestOnly(JwtSecret)(userHandler.Login))
+	router.GET("/user/logout", authMiddleware.Authenticate(userHandler.Logout))
 	router.POST("/user/register", middleware.GuestOnly(JwtSecret)(userHandler.Register))
 	router.POST("/user/reset-password", userHandler.ResetPassword)
 	router.POST("/user/change-password", userHandler.ChangePassword)

@@ -184,6 +184,20 @@ func (h *userHandler) Login(w http.ResponseWriter, r *http.Request, p httprouter
 	})
 }
 
+func (h *userHandler) Logout(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "token",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteStrictMode,
+	})
+
+	helper.GoodResponse(w, http.StatusOK, "successfully logged out", nil)
+}
+
 func (h *userHandler) ResetPassword(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	ctx := r.Context()
 
