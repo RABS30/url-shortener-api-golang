@@ -17,7 +17,7 @@ const UserClaimsKey ContextKey = "userClaimsKey"
 
 type UserPrimaryClaims struct {
 	UserID int64  `json:"user_id"`
-	Email  string `'json:"email"`
+	Email  string `json:"email"`
 	jwt.RegisteredClaims
 }
 
