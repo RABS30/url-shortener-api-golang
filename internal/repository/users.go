@@ -31,6 +31,24 @@ func (r *userRepository) Create(ctx context.Context, user *domain.User) (*domain
 	return user, nil
 }
 
+func (r *userRepository) Upsert(ctx context.Context, user *domain.User) (*domain.User, error) {
+	query := `INSERT INTO users (email, password_hash, is_verified) VALUES ($1, $2, $3) ON CONFLICT (email)  DO UPDATE SET email = EXCLUDED.email RETURNING id, email, password_hash, is_verified, status, created_at`
+
+	err := r.db.QueryRow(ctx, query, user.Email, user.PasswordHash, user.IsVerified).Scan(
+		&user.Id,
+		&user.Email,
+		&user.PasswordHash,
+		&user.IsVerified,
+		&user.Status,
+		&user.CreatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("upsert user: %w", err)
+	}
+
+	return user, nil
+}
+
 func (r *userRepository) Update(ctx context.Context, user *domain.User) (*domain.User, error) {
 	query := `UPDATE users SET password_hash = $1, is_verified = $2, status = $3 WHERE id = $4 RETURNING id, email, password_hash, is_verified, status, created_at`
 
@@ -118,23 +136,5 @@ func (r *userRepository) FindByEmail(ctx context.Context, email string) (*domain
 		}
 		return nil, fmt.Errorf("query user by email: %w", err)
 	}
-	return user, nil
-}
-
-func (r *userRepository) Upsert(ctx context.Context, user *domain.User) (*domain.User, error) {
-	query := `INSERT INTO users (email, password_hash) VALUES ($1, $2) ON CONFLICT (email)  DO UPDATE SET email = EXCLUDED.email RETURNING id, email, password_hash, is_verified, status, created_at`
-
-	err := r.db.QueryRow(ctx, query, user.Email, user.PasswordHash).Scan(
-		&user.Id,
-		&user.Email,
-		&user.PasswordHash,
-		&user.IsVerified,
-		&user.Status,
-		&user.CreatedAt,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("upsert user: %w", err)
-	}
-
 	return user, nil
 }

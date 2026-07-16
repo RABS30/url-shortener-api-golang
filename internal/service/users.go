@@ -175,6 +175,10 @@ func (s *userService) LoginWithGoogle(ctx context.Context, info *domain.GoogleUs
 	txUserRepo := repository.NewUserRepository(tx)
 	txOauthRepo := repository.NewOauthAccountsRepository(tx)
 
+	fmt.Println()
+	fmt.Println(info)
+	fmt.Println()
+
 	user, err := txUserRepo.Upsert(ctx, &domain.User{
 		Email:      info.Email,
 		IsVerified: info.EmailVerified,

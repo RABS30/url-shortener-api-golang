@@ -92,7 +92,6 @@ func (h *oauthGoogleHandler) Callback(w http.ResponseWriter, r *http.Request, _ 
 		}
 		return
 	}
-
 	jwtToken, err := h.Service.LoginWithGoogle(ctx, userInfo)
 	if err != nil {
 		http.Redirect(w, r, loginPageURL+"?error=login_failed", http.StatusTemporaryRedirect)
