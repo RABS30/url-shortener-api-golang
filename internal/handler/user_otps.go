@@ -98,7 +98,7 @@ func (h *userOtpsHandler) VerifyOTP(w http.ResponseWriter, r *http.Request, p ht
 
 	token, err := h.UserOtpsService.VerifyOTP(ctx, userRequest.OtpCode, userRequest.Email, userRequest.OtpType)
 	if err != nil {
-		helper.BadResponse(w, http.StatusBadRequest, "failed to verify otp code")
+		helper.BadResponse(w, http.StatusBadRequest, "invalid code")
 
 		if wrapper, ok := w.(*middleware.LogResponseWriter); ok {
 			wrapper.WriteError(fmt.Errorf("Verify  OTP code: %w", err))
@@ -107,12 +107,12 @@ func (h *userOtpsHandler) VerifyOTP(w http.ResponseWriter, r *http.Request, p ht
 	}
 
 	if userRequest.OtpType == "verification_account" {
-		helper.GoodResponse(w, http.StatusOK, "success", nil)
+		helper.GoodResponse(w, http.StatusOK, "verify successfully", nil)
 
 		return
 	}
 
-	helper.GoodResponse(w, http.StatusOK, "success", &ResponseBody{Token: token})
+	helper.GoodResponse(w, http.StatusOK, "verify successfully", &ResponseBody{Token: token})
 }
 
 func (h *userOtpsHandler) VerifySessionOtpPage(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
