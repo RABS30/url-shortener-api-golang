@@ -93,9 +93,11 @@ func (s *userService) Login(ctx context.Context, email string, password string) 
 	}
 
 	claims := jwt.MapClaims{
-		"user_id": existingUser.Id,
-		"email":   existingUser.Email,
-		"exp":     time.Now().Add(time.Hour * 24).Unix(),
+		"user_id":     existingUser.Id,
+		"email":       existingUser.Email,
+		"is_verified": existingUser.IsVerified,
+		"created_at":  existingUser.CreatedAt,
+		"exp":         time.Now().Add(time.Hour * 24).Unix(),
 	}
 
 	tokenString, err := helper.GenerateJWTToken(claims, s.JwtSecret)
@@ -104,6 +106,52 @@ func (s *userService) Login(ctx context.Context, email string, password string) 
 	}
 
 	return tokenString, nil
+}
+
+func (s *userService) LoginWithGoogle(ctx context.Context, info *domain.GoogleUserInfo) (string, error) {
+	tx, err := s.Db.Begin(ctx)
+	if err != nil {
+		return "", fmt.Errorf("login with google: begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	txUserRepo := repository.NewUserRepository(tx)
+	txOauthRepo := repository.NewOauthAccountsRepository(tx)
+
+	user, err := txUserRepo.Upsert(ctx, &domain.User{
+		Email:      info.Email,
+		IsVerified: info.EmailVerified,
+	})
+	if err != nil {
+		return "", fmt.Errorf("login with google: upsert user: %w", err)
+	}
+
+	_, err = txOauthRepo.Upsert(ctx, &domain.OauthAccounts{
+		UserId:         user.Id,
+		Provider:       "google",
+		ProviderUserId: info.GoogleID,
+	})
+	if err != nil {
+		return "", fmt.Errorf("login with google: upsert oauth account: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return "", fmt.Errorf("login with google: commit tx: %w", err)
+	}
+
+	claims := jwt.MapClaims{
+		"user_id":     user.Id,
+		"email":       user.Email,
+		"is_verified": user.IsVerified,
+		"created_at":  user.CreatedAt,
+		"exp":         time.Now().Add(time.Hour * 24).Unix(),
+	}
+
+	token, err := helper.GenerateJWTToken(claims, s.JwtSecret)
+	if err != nil {
+		return "", fmt.Errorf("login with google: generate jwt: %w", err)
+	}
+	return token, nil
 }
 
 func (s *userService) ChangePassword(ctx context.Context, email string, oldPassword string, newPassword string) error {
@@ -163,52 +211,4 @@ func (s *userService) ResetPassword(ctx context.Context, newPassword string, res
 	}
 
 	return nil
-}
-
-func (s *userService) LoginWithGoogle(ctx context.Context, info *domain.GoogleUserInfo) (string, error) {
-	tx, err := s.Db.Begin(ctx)
-	if err != nil {
-		return "", fmt.Errorf("login with google: begin tx: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
-	txUserRepo := repository.NewUserRepository(tx)
-	txOauthRepo := repository.NewOauthAccountsRepository(tx)
-
-	fmt.Println()
-	fmt.Println(info)
-	fmt.Println()
-
-	user, err := txUserRepo.Upsert(ctx, &domain.User{
-		Email:      info.Email,
-		IsVerified: info.EmailVerified,
-	})
-	if err != nil {
-		return "", fmt.Errorf("login with google: upsert user: %w", err)
-	}
-
-	_, err = txOauthRepo.Upsert(ctx, &domain.OauthAccounts{
-		UserId:         user.Id,
-		Provider:       "google",
-		ProviderUserId: info.GoogleID,
-	})
-	if err != nil {
-		return "", fmt.Errorf("login with google: upsert oauth account: %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return "", fmt.Errorf("login with google: commit tx: %w", err)
-	}
-
-	claims := jwt.MapClaims{
-		"user_id": user.Id,
-		"email":   user.Email,
-		"exp":     time.Now().Add(time.Hour * 24).Unix(),
-	}
-
-	token, err := helper.GenerateJWTToken(claims, s.JwtSecret)
-	if err != nil {
-		return "", fmt.Errorf("login with google: generate jwt: %w", err)
-	}
-	return token, nil
 }

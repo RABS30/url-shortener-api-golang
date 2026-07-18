@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"shorter-url/internal/domain"
 	"shorter-url/internal/helper"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/julienschmidt/httprouter"
@@ -16,8 +17,10 @@ type ContextKey string
 const UserClaimsKey ContextKey = "userClaimsKey"
 
 type UserPrimaryClaims struct {
-	UserID int64  `json:"user_id"`
-	Email  string `json:"email"`
+	UserID     int64     `json:"user_id"`
+	Email      string    `json:"email"`
+	IsVerified bool      `json:"is_verified"`
+	CreatedAt  time.Time `json:"created_at"`
 	jwt.RegisteredClaims
 }
 
