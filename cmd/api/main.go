@@ -71,13 +71,13 @@ func main() {
 
 	router.GET("/r/:shortCode", shortUrlHandler.AccessShortCode)
 
-	router.GET("/", userHandler.HelloWorld)
+	router.GET("/", authMiddleware.Authenticate(userHandler.HelloWorld))
 	router.POST("/user/login", middleware.GuestOnly(JwtSecret)(userHandler.Login))
 	router.GET("/user/logout", authMiddleware.Authenticate(userHandler.Logout))
 	router.POST("/user/register", middleware.GuestOnly(JwtSecret)(userHandler.Register))
 	router.POST("/user/reset-password", userHandler.ResetPassword)
-	router.POST("/user/change-password", userHandler.ChangePassword)
-	router.GET("/user/verify", authMiddleware.Authenticate(authMiddleware.VerifiedOnly(userHandler.VerifyUser)))
+	router.POST("/user/change-password", authMiddleware.Authenticate(userHandler.ChangePassword))
+	router.GET("/user/verify", authMiddleware.Authenticate(userHandler.VerifyUser))
 
 	router.GET("/user/login/google", oauthGoogleHandler.Login)
 	router.GET("/auth/google/callback", oauthGoogleHandler.Callback)
@@ -89,8 +89,8 @@ func main() {
 	// router.POST("/api/urls", authMiddleware.Authenticate(JwtSecret)(middleware.VerifiedUserOnly(shortUrlHandler.Create)))
 	// router.GET("/api/urls/:shortUrlId/analytics", middleware.Authenticate(JwtSecret)(middleware.VerifiedUserOnly(clickEventHandler.FindByShortUrlId)))
 
-	router.POST("/api/urls", authMiddleware.Authenticate(authMiddleware.VerifiedOnly(shortUrlHandler.Create)))
-	router.GET("/api/urls/:shortUrlId/analytics", authMiddleware.Authenticate(authMiddleware.VerifiedOnly(clickEventHandler.FindByShortUrlId)))
+	router.POST("/api/urls", authMiddleware.Authenticate(shortUrlHandler.Create))
+	router.GET("/api/urls/:shortUrlId/analytics", authMiddleware.Authenticate(clickEventHandler.FindByShortUrlId))
 
 	logger := middleware.Logger(router)
 	requestID := middleware.RequestID(logger)

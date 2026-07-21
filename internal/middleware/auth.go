@@ -64,27 +64,7 @@ func (m *authMiddleware) Authenticate(h httprouter.Handle) httprouter.Handle {
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), UserClaimsKey, userDetailClaims)
-		r = r.WithContext(ctx)
-
-		h(w, r, p)
-	}
-}
-
-func (m *authMiddleware) VerifiedOnly(h httprouter.Handle) httprouter.Handle {
-	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		claims, ok := r.Context().Value(UserClaimsKey).(*UserPrimaryClaims)
-		if !ok {
-			helper.BadResponse(w, http.StatusUnauthorized, "unauthorized")
-
-			if wrapper, ok := w.(*LogResponseWriter); ok {
-				wrapper.WriteError(fmt.Errorf("token not found: %t", ok))
-			}
-
-			return
-		}
-
-		user, err := m.userRepo.FindById(r.Context(), claims.UserID)
+		user, err := m.userRepo.FindById(r.Context(), userDetailClaims.UserID)
 		if err != nil || !user.IsVerified {
 			helper.BadResponse(w, http.StatusForbidden, "account not verified")
 
@@ -93,6 +73,9 @@ func (m *authMiddleware) VerifiedOnly(h httprouter.Handle) httprouter.Handle {
 			}
 			return
 		}
+
+		ctx := context.WithValue(r.Context(), UserClaimsKey, userDetailClaims)
+		r = r.WithContext(ctx)
 
 		h(w, r, p)
 	}
