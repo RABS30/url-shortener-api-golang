@@ -1,13 +1,16 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"shorter-url/internal/domain"
+	"shorter-url/internal/middleware"
 	"shorter-url/internal/service"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -209,5 +212,205 @@ func Test_Login_Unauthorized(t *testing.T) {
 
 	assert.Equal(t, http.StatusUnauthorized, recorder.Code)
 	assert.Contains(t, recorder.Body.String(), "invalid email or password")
+	mockAuth.AssertExpectations(t)
+}
+
+func Test_ChangePassword_Pass(t *testing.T) {
+	mockAuth := new(service.MockAuthService)
+	mockOtps := new(service.MockUserOtpsService)
+	mockSecret := []byte("this is jwt token")
+
+	cookieConfig := &CookieConfig{
+		Domain: "localhost",
+		MaxAge: 3600,
+		Secure: false,
+	}
+	handler := NewUserHandler(mockAuth, mockOtps, cookieConfig, mockSecret)
+
+	claims := &middleware.UserPrimaryClaims{
+		UserID:     1,
+		Email:      "test@mail.com",
+		IsVerified: true,
+		CreatedAt:  time.Now(),
+	}
+
+	ctx := context.WithValue(context.Background(), middleware.UserClaimsKey, claims)
+
+	mockAuth.On("ChangePassword", mock.Anything, claims.UserID, "oldpass123", "newpass123").
+		Return(nil)
+
+	body := `{"current_password":"oldpass123", "new_password1":"newpass123", "new_password2":"newpass123"}`
+	recorder := httptest.NewRecorder()
+
+	request := httptest.NewRequest(http.MethodPost, "/api/change-password", strings.NewReader(body)).WithContext(ctx)
+
+	handler.ChangePassword(recorder, request, nil)
+
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), "change password successfully")
+	mockAuth.AssertExpectations(t)
+}
+
+func Test_ChangePassword_InvalidJSON(t *testing.T) {
+	mockAuth := new(service.MockAuthService)
+	mockOtps := new(service.MockUserOtpsService)
+	mockSecret := []byte("this is jwt token")
+
+	cookieConfig := &CookieConfig{
+		Domain: "localhost",
+		MaxAge: 3600,
+		Secure: false,
+	}
+
+	claims := &middleware.UserPrimaryClaims{
+		UserID:     1,
+		Email:      "test@mail.com",
+		IsVerified: true,
+		CreatedAt:  time.Now(),
+	}
+	ctx := context.WithValue(context.Background(), middleware.UserClaimsKey, claims)
+
+	handler := NewUserHandler(mockAuth, mockOtps, cookieConfig, mockSecret)
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/change-password", strings.NewReader(`{"current_password":`)).WithContext(ctx)
+
+	handler.ChangePassword(recorder, request, nil)
+
+	assert.Equal(t, http.StatusBadRequest, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), "invalid request payload")
+	mockAuth.AssertNotCalled(t, "ChangePassword", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+}
+
+func Test_ChangePassword_RequiredFields(t *testing.T) {
+	mockAuth := new(service.MockAuthService)
+	mockOtps := new(service.MockUserOtpsService)
+	mockSecret := []byte("this is jwt token")
+
+	cookieConfig := &CookieConfig{
+		Domain: "localhost",
+		MaxAge: 3600,
+		Secure: false,
+	}
+	handler := NewUserHandler(mockAuth, mockOtps, cookieConfig, mockSecret)
+
+	claims := &middleware.UserPrimaryClaims{
+		UserID:     1,
+		Email:      "test@mail.com",
+		IsVerified: true,
+		CreatedAt:  time.Now(),
+	}
+
+	ctx := context.WithValue(context.Background(), middleware.UserClaimsKey, claims)
+
+	body := `{"current_password":"", "new_password1":"newpass123", "new_password2":"newpass123"}`
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/change-password", strings.NewReader(body)).WithContext(ctx)
+
+	handler.ChangePassword(recorder, request, nil)
+
+	assert.Equal(t, http.StatusBadRequest, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), "all fields are required")
+	mockAuth.AssertNotCalled(t, "ChangePassword", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+}
+
+func Test_ChangePassword_PasswordMismatch(t *testing.T) {
+	mockAuth := new(service.MockAuthService)
+	mockOtps := new(service.MockUserOtpsService)
+	mockSecret := []byte("this is jwt token")
+
+	cookieConfig := &CookieConfig{
+		Domain: "localhost",
+		MaxAge: 3600,
+		Secure: false,
+	}
+	handler := NewUserHandler(mockAuth, mockOtps, cookieConfig, mockSecret)
+
+	claims := &middleware.UserPrimaryClaims{
+		UserID:     1,
+		Email:      "test@mail.com",
+		IsVerified: true,
+		CreatedAt:  time.Now(),
+	}
+
+	ctx := context.WithValue(context.Background(), middleware.UserClaimsKey, claims)
+
+	body := `{"current_password":"oldpass123", "new_password1":"newpass123", "new_password2":"differentpass"}`
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/change-password", strings.NewReader(body)).WithContext(ctx)
+
+	handler.ChangePassword(recorder, request, nil)
+
+	assert.Equal(t, http.StatusBadRequest, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), "passwords do not match")
+	mockAuth.AssertNotCalled(t, "ChangePassword", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+}
+
+func Test_ChangePassword_InvalidCredentials(t *testing.T) {
+	mockAuth := new(service.MockAuthService)
+	mockOtps := new(service.MockUserOtpsService)
+	mockSecret := []byte("this is jwt token")
+
+	cookieConfig := &CookieConfig{
+		Domain: "localhost",
+		MaxAge: 3600,
+		Secure: false,
+	}
+	handler := NewUserHandler(mockAuth, mockOtps, cookieConfig, mockSecret)
+
+	claims := &middleware.UserPrimaryClaims{
+		UserID:     1,
+		Email:      "test@mail.com",
+		IsVerified: true,
+		CreatedAt:  time.Now(),
+	}
+
+	ctx := context.WithValue(context.Background(), middleware.UserClaimsKey, claims)
+
+	mockAuth.On("ChangePassword", mock.Anything, claims.UserID, "wrongpass", "newpass123").
+		Return(domain.ErrInvalidCredentials)
+
+	body := `{"current_password":"wrongpass", "new_password1":"newpass123", "new_password2":"newpass123"}`
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/change-password", strings.NewReader(body)).WithContext(ctx)
+
+	handler.ChangePassword(recorder, request, nil)
+
+	assert.Equal(t, http.StatusBadRequest, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), "invalid credentials")
+	mockAuth.AssertExpectations(t)
+}
+
+func Test_ChangePassword_InternalServerError(t *testing.T) {
+	mockAuth := new(service.MockAuthService)
+	mockOtps := new(service.MockUserOtpsService)
+	mockSecret := []byte("this is jwt token")
+
+	cookieConfig := &CookieConfig{
+		Domain: "localhost",
+		MaxAge: 3600,
+		Secure: false,
+	}
+	handler := NewUserHandler(mockAuth, mockOtps, cookieConfig, mockSecret)
+
+	claims := &middleware.UserPrimaryClaims{
+		UserID:     1,
+		Email:      "test@mail.com",
+		IsVerified: true,
+		CreatedAt:  time.Now(),
+	}
+
+	ctx := context.WithValue(context.Background(), middleware.UserClaimsKey, claims)
+
+	mockAuth.On("ChangePassword", mock.Anything, claims.UserID, "oldpass123", "newpass123").Return(errors.New("database connection error"))
+
+	body := `{"current_password":"oldpass123", "new_password1":"newpass123", "new_password2":"newpass123"}`
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/change-password", strings.NewReader(body)).WithContext(ctx)
+
+	handler.ChangePassword(recorder, request, nil)
+
+	assert.Equal(t, http.StatusInternalServerError, recorder.Code)
+	assert.Contains(t, recorder.Body.String(), "change password unsuccessfully")
 	mockAuth.AssertExpectations(t)
 }

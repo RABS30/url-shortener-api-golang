@@ -35,8 +35,10 @@ func Test_Create_ShortUrl_Pass(t *testing.T) {
 	}, nil)
 
 	claims := &middleware.UserPrimaryClaims{
-		UserID: 1,
-		Email:  "test@gmail.com",
+		UserID:     1,
+		Email:      "test@gmail.com",
+		IsVerified: true,
+		CreatedAt:  time.Now(),
 	}
 	bodyJson := `{"original_url" : "https://www.google.com"}`
 

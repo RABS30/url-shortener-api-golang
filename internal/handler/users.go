@@ -19,12 +19,12 @@ type UserCredentials struct {
 	Password string `json:"password"`
 }
 
-type userResponse struct {
+type UserResponse struct {
 	UserId int64  `json:"user_id"`
 	Email  string `json:"email"`
 }
 
-type userDetailsJWT struct {
+type UserDetailsJWT struct {
 	UserId int64  `json:"user_id"`
 	Email  string `json:"email"`
 	jwt.RegisteredClaims
@@ -37,15 +37,28 @@ type CookieConfig struct {
 	Path   string
 }
 
-type userHandler struct {
+type UserHandler struct {
 	UserService     domain.UserService
 	UserOtpsService domain.UserOtpsService
 	CookieConfig    CookieConfig
 	JwtSecret       []byte
 }
 
-func NewUserHandler(userService domain.UserService, userOtps domain.UserOtpsService, cookieConfig *CookieConfig, jwtSecret []byte) *userHandler {
-	return &userHandler{
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword1    string `json:"new_password1"`
+	NewPassword2    string `json:"new_password2"`
+}
+
+type ResetPasswordRequest struct {
+	Email      string `json:"email"`
+	ResetToken string `json:"reset_token"`
+	Password1  string `json:"password_1"`
+	Password2  string `json:"password_2"`
+}
+
+func NewUserHandler(userService domain.UserService, userOtps domain.UserOtpsService, cookieConfig *CookieConfig, jwtSecret []byte) *UserHandler {
+	return &UserHandler{
 		UserService:     userService,
 		UserOtpsService: userOtps,
 		CookieConfig:    *cookieConfig,
@@ -53,7 +66,7 @@ func NewUserHandler(userService domain.UserService, userOtps domain.UserOtpsServ
 	}
 }
 
-func (h *userHandler) Register(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	var req UserCredentials
 
 	request := json.NewDecoder(r.Body)
@@ -62,18 +75,14 @@ func (h *userHandler) Register(w http.ResponseWriter, r *http.Request, p httprou
 	if err != nil {
 		helper.BadResponse(w, http.StatusBadRequest, "invalid request payload")
 
-		if wrapper, ok := w.(*middleware.LogResponseWriter); ok {
-			wrapper.WriteError(err)
-		}
+		middleware.LogWriter(w, "", err)
 		return
 	}
 
 	if req.Email == "" || req.Password == "" {
 		helper.BadResponse(w, http.StatusBadRequest, "email and password are required")
 
-		if wrapper, ok := w.(*middleware.LogResponseWriter); ok {
-			wrapper.WriteError(err)
-		}
+		middleware.LogWriter(w, "", err)
 		return
 	}
 
@@ -104,13 +113,11 @@ func (h *userHandler) Register(w http.ResponseWriter, r *http.Request, p httprou
 			helper.BadResponse(w, http.StatusInternalServerError, "register failed")
 		}
 
-		if wrapper, ok := w.(*middleware.LogResponseWriter); ok {
-			wrapper.WriteError(err)
-		}
+		middleware.LogWriter(w, "", err)
 		return
 	}
 
-	res := userResponse{
+	res := UserResponse{
 		UserId: user.Id,
 		Email:  user.Email,
 	}
@@ -118,7 +125,7 @@ func (h *userHandler) Register(w http.ResponseWriter, r *http.Request, p httprou
 	helper.GoodResponse(w, http.StatusCreated, "registration successful", res)
 }
 
-func (h *userHandler) Login(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	var req UserCredentials
 
 	request := json.NewDecoder(r.Body)
@@ -126,17 +133,14 @@ func (h *userHandler) Login(w http.ResponseWriter, r *http.Request, p httprouter
 	err := request.Decode(&req)
 	if err != nil {
 		helper.BadResponse(w, http.StatusBadRequest, "invalid request payload")
-		if wrapper, ok := w.(*middleware.LogResponseWriter); ok {
-			wrapper.WriteError(err)
-		}
+		middleware.LogWriter(w, "", err)
 		return
 	}
 
 	if req.Email == "" || req.Password == "" {
 		helper.BadResponse(w, http.StatusBadRequest, "email and password are required")
-		if wrapper, ok := w.(*middleware.LogResponseWriter); ok {
-			wrapper.WriteError(errors.New("missing email or password"))
-		}
+
+		middleware.LogWriter(w, "", domain.ErrMissingEmailOrPassword)
 		return
 	}
 
@@ -145,23 +149,21 @@ func (h *userHandler) Login(w http.ResponseWriter, r *http.Request, p httprouter
 	token, err := h.UserService.Login(ctx, req.Email, req.Password)
 	if err != nil {
 		helper.BadResponse(w, http.StatusUnauthorized, "invalid email or password")
-		if wrapper, ok := w.(*middleware.LogResponseWriter); ok {
-			wrapper.WriteError(err)
-		}
+
+		middleware.LogWriter(w, "", err)
 		return
 	}
 
-	userDetails := &userDetailsJWT{}
+	userDetails := &UserDetailsJWT{}
 	claims, err := helper.DecodeJWTToken(token, userDetails, h.JwtSecret)
 	if err != nil || !claims.Valid {
 		helper.BadResponse(w, http.StatusUnauthorized, "invalid token or expired")
-		if wrapper, ok := w.(*middleware.LogResponseWriter); ok {
-			if err != nil {
-				wrapper.WriteError(fmt.Errorf("invalid token or expired: %w", err))
-			} else {
-				wrapper.WriteError(errors.New("invalid token claims or expired"))
-			}
+		if err != nil {
+			middleware.LogWriter(w, "invalid token or expired", err)
+		} else {
+			middleware.LogWriter(w, "", domain.ErrInvalidTokenOrExpired)
 		}
+
 		return
 	}
 
@@ -178,13 +180,13 @@ func (h *userHandler) Login(w http.ResponseWriter, r *http.Request, p httprouter
 
 	http.SetCookie(w, cookie)
 
-	helper.GoodResponse(w, http.StatusOK, "login successfully", &userResponse{
+	helper.GoodResponse(w, http.StatusOK, "login successfully", &UserResponse{
 		Email:  userDetails.Email,
 		UserId: userDetails.UserId,
 	})
 }
 
-func (h *userHandler) Logout(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+func (h *UserHandler) Logout(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "token",
 		Value:    "",
@@ -198,15 +200,9 @@ func (h *userHandler) Logout(w http.ResponseWriter, r *http.Request, p httproute
 	helper.GoodResponse(w, http.StatusOK, "successfully logged out", nil)
 }
 
-func (h *userHandler) ResetPassword(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+func (h *UserHandler) ResetPassword(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	ctx := r.Context()
 
-	type ResetPasswordRequest struct {
-		Email      string `json:"email"`
-		ResetToken string `json:"reset_token"`
-		Password1  string `json:"password_1"`
-		Password2  string `json:"password_2"`
-	}
 	var userRequest = &ResetPasswordRequest{}
 
 	request := json.NewDecoder(r.Body)
@@ -223,7 +219,7 @@ func (h *userHandler) ResetPassword(w http.ResponseWriter, r *http.Request, p ht
 	}
 
 	if userRequest.Password1 != userRequest.Password2 {
-		helper.BadResponse(w, http.StatusBadRequest, "password1 and password2 do not macth")
+		helper.BadResponse(w, http.StatusBadRequest, "passwords do not match")
 		return
 	}
 
@@ -237,14 +233,7 @@ func (h *userHandler) ResetPassword(w http.ResponseWriter, r *http.Request, p ht
 	helper.GoodResponse(w, http.StatusOK, "success", nil)
 }
 
-func (h *userHandler) HelloWorld(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	helper.GoodResponse(w, http.StatusOK, "success", map[string]any{
-		"head": "berhasil",
-		"code": 200,
-	})
-}
-
-func (h *userHandler) VerifyUser(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (h *UserHandler) VerifyUser(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	user, err := middleware.GetUserDetailFromContext(r.Context())
 	if err != nil {
 		helper.BadResponse(w, http.StatusUnauthorized, "unauthorized")
@@ -258,6 +247,55 @@ func (h *userHandler) VerifyUser(w http.ResponseWriter, r *http.Request, _ httpr
 	helper.GoodResponse(w, http.StatusOK, "success", user)
 }
 
-func (h *userHandler) ChangePassword(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+func (h *UserHandler) ChangePassword(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	ctx := r.Context()
 
+	user, err := middleware.GetUserDetailFromContext(ctx)
+	if err != nil {
+		middleware.LogWriter(w, "change password auth", err)
+		helper.BadResponse(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	var userRequest ChangePasswordRequest
+
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&userRequest); err != nil {
+		middleware.LogWriter(w, "change password decode", err)
+		helper.BadResponse(w, http.StatusBadRequest, "invalid request payload")
+		return
+	}
+
+	if userRequest.CurrentPassword == "" || userRequest.NewPassword1 == "" || userRequest.NewPassword2 == "" {
+		middleware.LogWriter(w, "change password validation", errors.New("all fields are required"))
+		helper.BadResponse(w, http.StatusBadRequest, "all fields are required")
+		return
+	}
+
+	if userRequest.NewPassword1 != userRequest.NewPassword2 {
+		middleware.LogWriter(w, "change password validation", errors.New("passwords do not match"))
+		helper.BadResponse(w, http.StatusBadRequest, "passwords do not match")
+		return
+	}
+
+	err = h.UserService.ChangePassword(ctx, user.UserID, userRequest.CurrentPassword, userRequest.NewPassword1)
+	if err != nil {
+		middleware.LogWriter(w, "change password service", err)
+		if errors.Is(err, domain.ErrInvalidCredentials) {
+			helper.BadResponse(w, http.StatusBadRequest, "invalid credentials")
+		} else {
+			helper.BadResponse(w, http.StatusInternalServerError, "change password unsuccessfully")
+		}
+		return
+	}
+
+	helper.GoodResponse(w, http.StatusOK, "change password successfully", nil)
+}
+
+func (h *UserHandler) HelloWorld(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	helper.GoodResponse(w, http.StatusOK, "success", map[string]any{
+		"head": "berhasil",
+		"code": 200,
+	})
 }

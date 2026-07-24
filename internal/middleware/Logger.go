@@ -2,11 +2,14 @@ package middleware
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"time"
 )
+
+
 
 type customSlogHandler struct {
 	slog.Handler
@@ -104,4 +107,14 @@ func Logger(next http.Handler) http.Handler {
 
 		slog.LogAttrs(ctx, level, msg, logAttrs...)
 	})
+}
+
+func LogWriter(w http.ResponseWriter, action string, err error) {
+	if wrapper, ok := w.(*LogResponseWriter); ok {
+		if action != "" {
+			wrapper.WriteError(fmt.Errorf("%s: %w", action, err))
+		} else {
+			wrapper.WriteError(err)
+		}
+	}
 }

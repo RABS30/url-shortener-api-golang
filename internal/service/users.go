@@ -154,20 +154,20 @@ func (s *userService) LoginWithGoogle(ctx context.Context, info *domain.GoogleUs
 	return token, nil
 }
 
-func (s *userService) ChangePassword(ctx context.Context, email string, oldPassword string, newPassword string) error {
-	user, err := s.Repo.FindByEmail(ctx, email)
+func (s *userService) ChangePassword(ctx context.Context, userId int64, oldPassword string, newPassword string) error {
+	user, err := s.Repo.FindById(ctx, userId)
 	if err != nil {
 		return err
 	}
 
 	err = s.Hasher.Compare(ctx, oldPassword, user.PasswordHash)
 	if err != nil {
-		return fmt.Errorf("compare password in change password: %w", domain.ErrInvalidCredentials)
+		return fmt.Errorf("compare password: %w", domain.ErrInvalidCredentials)
 	}
 
 	hashedPassword, err := s.Hasher.Hash(ctx, newPassword)
 	if err != nil {
-		return fmt.Errorf("new hash password in change password: %w", err)
+		return fmt.Errorf("new hash password: %w", err)
 	}
 
 	err = s.Repo.UpdatePassword(ctx, user.Id, string(hashedPassword))
@@ -197,7 +197,7 @@ func (s *userService) ResetPassword(ctx context.Context, newPassword string, res
 
 	hashedPassword, err := s.Hasher.Hash(ctx, newPassword)
 	if err != nil {
-		return fmt.Errorf("create hash password in reset password: %w", err)
+		return fmt.Errorf("create hash password: %w", err)
 	}
 
 	user, err := s.Repo.FindByEmail(ctx, email)

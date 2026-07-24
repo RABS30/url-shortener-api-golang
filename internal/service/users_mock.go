@@ -28,8 +28,8 @@ func (m *MockAuthService) Login(ctx context.Context, email, password string) (st
 	return args.String(0), args.Error(1)
 }
 
-func (m *MockAuthService) ChangePassword(ctx context.Context, email, oldPassword, newPassword string) error {
-	args := m.Called(ctx, email, oldPassword, newPassword)
+func (m *MockAuthService) ChangePassword(ctx context.Context, userId int64, oldPassword, newPassword string) error {
+	args := m.Called(ctx, userId, oldPassword, newPassword)
 	return args.Error(0)
 }
 

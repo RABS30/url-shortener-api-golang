@@ -43,7 +43,7 @@ type UserRepository interface {
 type UserService interface {
 	Register(ctx context.Context, email string, password string) (*User, error)
 	Login(ctx context.Context, email string, password string) (string, error)
-	ChangePassword(ctx context.Context, email string, oldPassword string, newPassword string) error
+	ChangePassword(ctx context.Context, userId int64, oldPassword string, newPassword string) error
 	ResetPassword(ctx context.Context, newPassword string, resetToken string) error
 	LoginWithGoogle(ctx context.Context, userInfo *GoogleUserInfo) (string, error)
 }
